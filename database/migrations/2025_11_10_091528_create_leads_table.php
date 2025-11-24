@@ -1,0 +1,58 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('pipeline_stages', function (Blueprint $table) {
+            $table->id();
+            $table->string('key')->unique(); // machine key: new, contacted, qualified, opportunity, proposal_sent, won, lost
+            $table->string('name'); // human name
+            $table->integer('order')->default(0); // ordering in kanban
+            $table->timestamps();
+
+            $table->index(['order']);
+        });
+        
+        Schema::create('leads', function (Blueprint $table) {
+            $table->id();
+            $table->string('title')->nullable();
+            $table->text('description')->nullable(); // user-provided description (conversational)
+            $table->enum('type', ['document', 'conversation'])->default('conversation');
+            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('owner_id')->nullable()->constrained('users')->nullOnDelete(); // assigned owner
+            $table->foreignId('pipeline_stage_id')->nullable()->constrained('pipeline_stages')->nullOnDelete();
+            $table->json('metadata')->nullable(); // extracted requirements, short summary from AI
+            $table->boolean('ai_reviewed')->default(false); // whether AI has extracted requirements
+            $table->timestamp('contacted_at')->nullable();
+            $table->timestamp('qualified_at')->nullable();
+            $table->timestamp('converted_to_opportunity_at')->nullable();
+            $table->timestamp('won_at')->nullable();
+            $table->timestamp('lost_at')->nullable();
+            $table->timestamp('archived_at')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->index(['type']);
+            $table->index(['created_by']);
+            $table->index(['owner_id']);
+            $table->index(['pipeline_stage_id']);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('leads');
+        Schema::dropIfExists('pipeline_stages');
+    }
+};
