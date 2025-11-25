@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import Button from '@/components/ui/Button';
 
 
 export default function LeadDocumentUploader({ onUploadComplete, onUploadStart, leadId }: any) {
@@ -69,14 +70,9 @@ export default function LeadDocumentUploader({ onUploadComplete, onUploadStart, 
                     onChange={(e) => e.target.files && upload(e.target.files[0])}
                     className="hidden"
                 />
-                <button
-                    type="button"
-                    onClick={() => ref.current?.click()}
-                    disabled={busy}
-                    className="inline-flex items-center px-3 py-1.5 rounded bg-sky-600 text-white text-sm hover:bg-sky-700 disabled:opacity-60"
-                >
+                <Button type="button" onClick={() => ref.current?.click()} disabled={busy}>
                     {busy ? 'Uploading...' : 'Choose document'}
-                </button>
+                </Button>
             </label>
 
             {progress !== null && (

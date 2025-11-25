@@ -4,6 +4,8 @@ import { type BreadcrumbItem } from '@/types';
 import { useState } from 'react';
 import LeadDocumentUploader from '@/pages/leads/lead-document-uploader';
 import { useLeadDocumentsRealtime } from '@/hooks/use-lead-documents-realtime';
+import Badge from '@/components/ui/Badge';
+import Card from '@/components/ui/Card';
 
 
 export default function LeadShow() {
@@ -76,14 +78,14 @@ export default function LeadShow() {
                     <h3 className="font-semibold">Documents</h3>
                     <div className="space-y-2">
                         {documents.map((d) => (
-                            <div key={d.id} className="p-3 border rounded">
+                            <Card key={d.id} className="mb-2">
                                 <div className="flex items-start justify-between gap-4">
                                     <div className="flex-1">
                                         <strong>{d.original_name ?? d.filename ?? `Document ${d.id}`}</strong>
                                         <div className="text-sm text-gray-500">Uploaded: {d.created_at ? new Date(d.created_at).toLocaleString() : '—'}</div>
                                     </div>
-                                    <div className="flex-shrink-0">
-                                        {statusBadge(d.status)}
+                                    <div>
+                                        <Badge status={d.status} />
                                     </div>
                                 </div>
                                 {d.ai_summary?.summary && (
@@ -92,7 +94,7 @@ export default function LeadShow() {
                                         <pre className="whitespace-pre-wrap">{d.ai_summary.summary}</pre>
                                     </div>
                                 )}
-                            </div>
+                            </Card>
                         ))}
                     </div>
 
