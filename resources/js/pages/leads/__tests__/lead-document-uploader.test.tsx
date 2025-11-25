@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, fireEvent, screen, waitFor } from '@testing-library/react';
 import LeadDocumentUploader from '../lead-document-uploader';
-import { vi } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 class FakeXHR {
     public upload: any = {};
@@ -34,7 +34,8 @@ describe('LeadDocumentUploader', () => {
 
     beforeEach(() => {
         originalXhr = (global as any).XMLHttpRequest;
-        (global as any).XMLHttpRequest = vi.fn(() => new FakeXHR());
+        // Use the FakeXHR class directly so 'new XMLHttpRequest()' works as expected.
+        (global as any).XMLHttpRequest = FakeXHR as any;
     });
 
     afterEach(() => {
@@ -48,7 +49,7 @@ describe('LeadDocumentUploader', () => {
 
         render(<LeadDocumentUploader onUploadComplete={onUploadComplete} onUploadStart={onUploadStart} leadId={1} />);
 
-        const button = screen.getByRole('button', { name: /choose document/i });
+        const button = screen.getByRole('button', { name: /upload document/i });
         fireEvent.click(button);
 
         const fileInput = document.querySelector('input[type=file]') as HTMLInputElement;

@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import { echo } from "@/lib/echo";
+import echo from "@/lib/echo";
 import { Lead } from "@/types";
 
 type EchoChannel = {
@@ -86,9 +86,10 @@ export function usePipeline(initialData?: {
           copy[k] = copy[k].filter((l) => String(l.id) !== String(updated.id));
         }
         (copy[updated.pipeline_stage_key] ||= []).unshift(updated);
+        // Keep stableRef in sync with the state change we just applied.
+        stableRef.current.itemsByStage = cloneItems(copy);
         return copy;
       });
-      stableRef.current.itemsByStage = cloneItems(itemsByStage);
     };
 
     channel.listen(".PipelineMoved", onPipelineMoved);
@@ -104,7 +105,8 @@ export function usePipeline(initialData?: {
     async ({ leadId, toStageKey }: { leadId: string | number; toStageKey: string }) => {
       setError(null);
 
-      const prevItems = cloneItems(stableRef.current.itemsByStage);
+      // Capture current state BEFORE optimistic update
+      const prevItems = cloneItems(itemsByStage);
 
       // Find lead + current stage
       let found: Lead | undefined;
@@ -121,16 +123,14 @@ export function usePipeline(initialData?: {
 
       if (!found) return;
 
-      // Optimistic update
-      setItemsByStage((current) => {
-        const copy = cloneItems(current);
-        copy[fromKey!] = copy[fromKey!].filter((l) => String(l.id) !== String(leadId));
-        (copy[toStageKey] ||= []).unshift({
-          ...found!,
-          pipeline_stage_key: toStageKey,
-        });
-        return copy;
+      // Optimistic update - just use setItemsByStage directly, don't use stableRef
+      const optimisticItems = cloneItems(prevItems);
+      optimisticItems[fromKey!] = optimisticItems[fromKey!].filter((l) => String(l.id) !== String(leadId));
+      (optimisticItems[toStageKey] ||= []).unshift({
+        ...found!,
+        pipeline_stage_key: toStageKey,
       });
+      setItemsByStage(optimisticItems);
 
       try {
         const { data } = await axios.post("/api/v1/pipelines/move", {
@@ -138,6 +138,7 @@ export function usePipeline(initialData?: {
           to_stage_key: toStageKey,
         });
 
+        // Apply server response only if it has updated_lead
         if (data?.updated_lead) {
           const updated = data.updated_lead;
           setItemsByStage((current) => {
@@ -152,11 +153,11 @@ export function usePipeline(initialData?: {
       } catch (err: any) {
         console.error("Failed to move lead:", err);
         setError(err.message ?? "Move failed");
-        // Rollback
+        // Rollback to previous state
         setItemsByStage(prevItems);
       }
     },
-    []
+    [itemsByStage]
   );
 
   return { stages, itemsByStage, loading, error, refresh, moveLead };

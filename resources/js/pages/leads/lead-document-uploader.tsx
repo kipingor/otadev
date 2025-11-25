@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
-import Button from '@/components/ui/Button';
-
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { AlertCircle, Upload } from 'lucide-react';
 
 export default function LeadDocumentUploader({ onUploadComplete, onUploadStart, leadId }: any) {
     const ref = useRef<HTMLInputElement | null>(null);
@@ -60,8 +61,8 @@ export default function LeadDocumentUploader({ onUploadComplete, onUploadStart, 
     }
 
     return (
-        <div>
-            <label className="inline-flex items-center gap-2">
+        <div className="space-y-3">
+            <label className="inline-flex items-center">
                 <input
                     ref={ref}
                     type="file"
@@ -69,20 +70,34 @@ export default function LeadDocumentUploader({ onUploadComplete, onUploadStart, 
                     disabled={busy}
                     onChange={(e) => e.target.files && upload(e.target.files[0])}
                     className="hidden"
+                    aria-label="Select document to upload"
                 />
-                <Button type="button" onClick={() => ref.current?.click()} disabled={busy}>
-                    {busy ? 'Uploading...' : 'Choose document'}
+                <Button 
+                    type="button" 
+                    onClick={() => ref.current?.click()} 
+                    disabled={busy}
+                    variant="default"
+                    size="default"
+                    className="gap-2"
+                >
+                    <Upload className="h-4 w-4" />
+                    {busy ? 'Uploading...' : 'Upload document'}
                 </Button>
             </label>
 
             {progress !== null && (
-                <div className="mt-2 w-full bg-gray-100 rounded overflow-hidden">
-                    <div className="h-2 bg-sky-500" style={{ width: `${progress}%` }}></div>
-                    <div className="text-xs text-gray-500 mt-1">{progress}%</div>
+                <div className="space-y-1.5">
+                    <Progress value={progress} aria-label="Upload progress" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} />
+                    <div className="text-xs text-muted-foreground text-right">{progress}%</div>
                 </div>
             )}
 
-            {error && <div role="alert" className="text-sm text-red-600 mt-2">{error}</div>}
+            {error && (
+                <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                    <span>{error}</span>
+                </div>
+            )}
         </div>
     );
 }
