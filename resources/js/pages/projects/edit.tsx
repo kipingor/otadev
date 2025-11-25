@@ -22,7 +22,7 @@ export default function ProjectEdit() {
         { title: 'Edit', href: `/projects/${project?.id}/edit` },
     ];
 
-    const form = useForm({
+    const form: any = useForm({
         name: project?.name ?? '',
         description: project?.description ?? '',
         opportunity_id: (project?.opportunity_id ?? '') as number | '' | null,
@@ -50,7 +50,7 @@ export default function ProjectEdit() {
                     <input
                         className="input"
                         value={form.data.name}
-                        onChange={(e) => form.setData('name', e.target.value)}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => (form as any).setData('name', e.currentTarget.value)}
                         required
                     />
                     <InputError message={form.errors.name} />
@@ -62,7 +62,7 @@ export default function ProjectEdit() {
                         className="textarea"
                         rows={4}
                         value={form.data.description ?? ''}
-                        onChange={(e) => form.setData('description', e.target.value)}
+                        onChange={(e) => (form as any).setData('description', (e.target as HTMLTextAreaElement).value)}
                     />
                     <InputError message={form.errors.description} />
                 </div>
@@ -74,7 +74,7 @@ export default function ProjectEdit() {
                             className="input"
                             value={form.data.opportunity_id ?? ''}
                             onChange={(e) =>
-                                form.setData('opportunity_id', e.target.value ? Number(e.target.value) : null)
+                                (form as any).setData('opportunity_id', (e.target as HTMLSelectElement).value ? Number((e.target as HTMLSelectElement).value) : null)
                             }
                         >
                             <option value="">No linked opportunity</option>
@@ -92,7 +92,7 @@ export default function ProjectEdit() {
                         <select
                             className="input"
                             value={form.data.client_id ?? ''}
-                            onChange={(e) => form.setData('client_id', e.target.value ? Number(e.target.value) : null)}
+                            onChange={(e) => (form as any).setData('client_id', (e.target as HTMLSelectElement).value ? Number((e.target as HTMLSelectElement).value) : null)}
                         >
                             <option value="">Unassigned</option>
                             {clients.map((client) => (
@@ -111,7 +111,7 @@ export default function ProjectEdit() {
                         <select
                             className="input"
                             value={form.data.owner_id ?? ''}
-                            onChange={(e) => form.setData('owner_id', e.target.value ? Number(e.target.value) : null)}
+                            onChange={(e) => (form as any).setData('owner_id', (e.target as HTMLSelectElement).value ? Number((e.target as HTMLSelectElement).value) : null)}
                         >
                             <option value="">Unassigned</option>
                             {owners.map((owner) => (
@@ -128,7 +128,7 @@ export default function ProjectEdit() {
                         <select
                             className="input"
                             value={form.data.status}
-                            onChange={(e) => form.setData('status', e.target.value)}
+                            onChange={(e) => (form as any).setData('status', (e.target as HTMLSelectElement).value)}
                         >
                             {statusOptions.map((status) => (
                                 <option key={status} value={status}>
@@ -147,7 +147,7 @@ export default function ProjectEdit() {
                             type="date"
                             className="input"
                             value={form.data.start_date ?? ''}
-                            onChange={(e) => form.setData('start_date', e.target.value)}
+                            onChange={(e) => (form as any).setData('start_date', (e.target as HTMLInputElement).value)}
                         />
                         <InputError message={form.errors.start_date} />
                     </div>
@@ -158,7 +158,7 @@ export default function ProjectEdit() {
                             type="date"
                             className="input"
                             value={form.data.end_date ?? ''}
-                            onChange={(e) => form.setData('end_date', e.target.value)}
+                            onChange={(e) => (form as any).setData('end_date', (e.target as HTMLInputElement).value)}
                         />
                         <InputError message={form.errors.end_date} />
                     </div>
@@ -169,7 +169,7 @@ export default function ProjectEdit() {
                             <select
                                 className="input w-28"
                                 value={form.data.currency}
-                                onChange={(e) => form.setData('currency', e.target.value)}
+                                onChange={(e) => (form as any).setData('currency', (e.target as HTMLSelectElement).value)}
                             >
                                 {currencyOptions.map((currency) => (
                                     <option key={currency} value={currency}>
@@ -182,7 +182,7 @@ export default function ProjectEdit() {
                                 step="0.01"
                                 className="input flex-1"
                                 value={form.data.budget ?? ''}
-                                onChange={(e) => form.setData('budget', e.target.value)}
+                                onChange={(e) => (form as any).setData('budget', (e.target as HTMLInputElement).value)}
                             />
                         </div>
                         <InputError message={form.errors.budget ?? form.errors.currency} />

@@ -10,31 +10,15 @@ import {
     KanbanCards,
     KanbanCard,
 } from "@/components/ui/shadcn-io/kanban/index"; // <-- adjust if your kanban components live elsewhere
-
-// Fallback AppLayout & hooks (same pattern as your original file)
+// Fallback AppLayout (try dynamic require for layout so file can be used in different bundler configs)
 let AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => <div>{children}</div>;
 try {
     AppLayout = require("@/layouts/app-layout").default || AppLayout;
 } catch { }
 
-let useTasks: any = () => ({
-    tasksByStatus: {},
-    loading: false,
-    error: null,
-    refresh: () => { },
-    setTasksByStatus: () => { },
-});
-try {
-    useTasks = require("@/hooks/useTasks").default || useTasks;
-} catch { }
-
-let useTaskMutations: any = () => ({
-    updateTask: async () => { },
-    createTask: async () => { }, // optional
-});
-try {
-    useTaskMutations = require("@/hooks/useTaskMutations").default || useTaskMutations;
-} catch { }
+// Static imports for hooks so bundlers resolve them reliably
+import useTasks from '@/hooks/useTasks';
+import useTaskMutations from '@/hooks/use-task-mutations';
 
 let toast = ({ title, description, variant }: any) => {
     if (variant === "destructive") alert(`${title}\n${description ?? ""}`);
@@ -237,10 +221,14 @@ export default function TaskBoard({ projectId }: { projectId: number | string })
         return () => clearTimeout(id);
     }, [search]);
 
-    const kanbanColumns = useMemo(
-        () => Object.keys(tasksByStatus ?? {}).map((status) => ({ id: status, name: status })),
-        [tasksByStatus]
-    );
+    // Default column order when a project has no tasks yet
+    const DEFAULT_STATUSES = ['todo', 'in_progress', 'review', 'done'];
+
+    const kanbanColumns = useMemo(() => {
+        const keys = Object.keys(tasksByStatus ?? {});
+        const statuses = keys.length ? keys : DEFAULT_STATUSES;
+        return statuses.map((status) => ({ id: status, name: status }));
+    }, [tasksByStatus]);
 
     const kanbanData = useMemo(() => {
         return Object.entries(tasksByStatus ?? {}).flatMap(([status, tasks]: any[]) =>
@@ -337,7 +325,7 @@ export default function TaskBoard({ projectId }: { projectId: number | string })
 
     if (loading) return <div className="p-4">Loading tasks...</div>;
     if (error) return <div className="p-4 text-red-600">{String(error)}</div>;
-    if (!kanbanColumns.length) return <div className="p-4">No tasks found.</div>;
+    // Always render the board (even when empty) so the New Task button is available
 
     // gather label & assignee options for filters
     const allLabels = new Set<string>();

@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Laravel\Fortify\Features;
 use App\Http\Controllers\Web\DashboardController;
@@ -20,7 +21,7 @@ Route::get('/welcome', function () {
 
 // Redirect root based on authentication status
 Route::get('/', function () {
-    if (auth()->check()) {
+    if (Auth::check()) {
         return redirect()->route('dashboard');
     }
     return redirect()->route('home');

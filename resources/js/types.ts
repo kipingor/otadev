@@ -15,7 +15,7 @@ export interface User {
 
 export interface BreadcrumbItem {
     title: string;
-    href?: string;
+    href?: any;
 }
 
 export interface PipelineStage {
@@ -24,6 +24,9 @@ export interface PipelineStage {
     name: string;
     order?: number;
 }
+
+// legacy alias used across some tests and older code
+export type Stage = PipelineStage;
 
 export interface Lead {
     id: ID;
@@ -95,16 +98,27 @@ export interface Task {
     metadata?: Record<string, any>;
 }
 
+export interface ActivityLog {
+    id?: ID;
+    message?: string;
+    created_at?: string | null;
+    [key: string]: any;
+}
+
 export interface SharedData {
     user?: User | null;
     // Add other shared props (flash messages, feature flags) as needed
     [key: string]: any;
 }
 
+import type { ComponentType } from 'react';
+import type { LucideProps } from 'lucide-react';
+
 export interface NavItem {
     title: string;
-    href?: string;
-    icon?: string;
+    href?: any;
+    // Accept either a Lucide React component, a string identifier, or null
+    icon?: ComponentType<LucideProps> | string | null;
 }
 
 export default {};

@@ -89,6 +89,16 @@ class Lead extends Model
     }
 
     /**
+     * Get the documents uploaded for this lead.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function leadDocuments()
+    {
+        return $this->hasMany(LeadDocument::class);
+    }
+
+    /**
      * Get the opportunity associated with this lead.
      *
      * @return \Illuminate\Database\Eloquent\Relations\HasOne
@@ -96,5 +106,25 @@ class Lead extends Model
     public function opportunity()
     {
         return $this->hasOne(Opportunity::class);
+    }
+
+    /**
+     * Get the proposals for this lead.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function proposals()
+    {
+        return $this->hasMany(Proposal::class);
+    }
+
+    /**
+     * Get the emails associated with this lead.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function emails()
+    {
+        return $this->hasMany(Email::class);
     }
 }

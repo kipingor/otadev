@@ -6,8 +6,9 @@ import { echo } from "@/lib/echo";
 import { Task } from "@/types";
 
 
-export function useTasks(projectId?: number) {
+export function useTasks(projectId?: number | string) {
     const queryClient = useQueryClient();
+    const projectIdNum = projectId ? Number(projectId) : undefined;
 
     /** ──────── Fetch tasks ──────── **/
     const {
@@ -16,13 +17,19 @@ export function useTasks(projectId?: number) {
         isError,
         refetch,
     } = useQuery<Task[]>({
-        queryKey: ["tasks", projectId],
+        queryKey: ["tasks", projectIdNum],
         queryFn: async () => {
-            if (!projectId) return [];
-            const response = await axios.get(`/api/v1/projects/${projectId}/tasks`);
-            return response.data;
+            if (!projectIdNum) return [];
+            try {
+                const response = await axios.get(`/api/v1/projects/${projectIdNum}/tasks`);
+                return response.data;
+            } catch (err: any) {
+                // If project not found (404) return empty array so UI can render gracefully.
+                if (err?.response?.status === 404) return [];
+                throw err;
+            }
         },
-        enabled: !!projectId,
+        enabled: !!projectIdNum,
     });
 
     /** ──────── Update status (Optimistic UI) ──────── **/
@@ -31,49 +38,56 @@ export function useTasks(projectId?: number) {
             await axios.put(`/api/v1/tasks/${taskId}`, { status: newStatus });
         },
         onMutate: async ({ taskId, newStatus }: { taskId: number; newStatus: string }) => {
-            await queryClient.cancelQueries({ queryKey: ["tasks", projectId] });
-            const previousTasks = queryClient.getQueryData<Task[]>(["tasks", projectId]);
-            queryClient.setQueryData<Task[]>(["tasks", projectId], (old = []) =>
+            await queryClient.cancelQueries({ queryKey: ["tasks", projectIdNum] });
+            const previousTasks = queryClient.getQueryData<Task[]>(["tasks", projectIdNum]);
+            queryClient.setQueryData<Task[]>(["tasks", projectIdNum], (old = []) =>
                 (old as Task[]).map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
             );
             return { previousTasks };
         },
         onError: (_err: unknown, _variables: unknown, context: { previousTasks?: Task[] } | undefined) => {
             if (context?.previousTasks) {
-                queryClient.setQueryData(["tasks", projectId], context.previousTasks);
+                queryClient.setQueryData(["tasks", projectIdNum], context.previousTasks);
             }
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ["tasks", projectId] });
+            queryClient.invalidateQueries({ queryKey: ["tasks", projectIdNum] });
         },
     });
 
     /** ──────── Real-time Echo updates ──────── **/
     useEffect(() => {
-        if (!projectId) return;
-        // Use proper Echo API; echo.private returns channel with listen()
-        const channel = (echo as any).channel(`projects.${projectId}.tasks`);
+        if (!(echo as any) || typeof (echo as any).channel !== 'function') return;
 
-        channel.listen(".task.created", (task: Task) => {
-            queryClient.setQueryData<Task[]>(["tasks", projectId], (old = []) => [task, ...old]);
-        });
+        // Use proper Echo API; echo.channel returns a channel with listen()
+        const channel = (echo as any).channel(`projects.${projectIdNum}.tasks`);
 
-        channel.listen(".task.updated", (updated: Task) => {
-            queryClient.setQueryData<Task[]>(["tasks", projectId], (old = []) =>
+        const onCreated = (task: Task) => {
+            queryClient.setQueryData<Task[]>(["tasks", projectIdNum], (old = []) => [task, ...old]);
+        };
+        const onUpdated = (updated: Task) => {
+            queryClient.setQueryData<Task[]>(["tasks", projectIdNum], (old = []) =>
                 (old as Task[]).map((t) => (t.id === updated.id ? updated : t))
             );
-        });
-
-        channel.listen(".task.deleted", (deleted: Task) => {
-            queryClient.setQueryData<Task[]>(["tasks", projectId], (old = []) =>
+        };
+        const onDeleted = (deleted: Task) => {
+            queryClient.setQueryData<Task[]>(["tasks", projectIdNum], (old = []) =>
                 (old as Task[]).filter((t) => t.id !== deleted.id)
             );
-        });
+        };
+
+        channel.listen(".task.created", onCreated);
+        channel.listen(".task.updated", onUpdated);
+        channel.listen(".task.deleted", onDeleted);
 
         return () => {
-            channel.stopListening(".task.created");
-            channel.stopListening(".task.updated");
-            channel.stopListening(".task.deleted");
+            try {
+                channel.stopListening(".task.created");
+                channel.stopListening(".task.updated");
+                channel.stopListening(".task.deleted");
+            } catch (_) {
+                // ignore any errors during cleanup
+            }
         };
     }, [projectId, queryClient]);
 

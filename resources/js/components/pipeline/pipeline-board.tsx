@@ -12,12 +12,12 @@ import {
     verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 
-import { type Lead, type Stage } from "@/types";
+import { type Lead, type PipelineStage } from "@/types";
 import { usePipeline } from "@/hooks/use-pipeline";
 import SortableLeadCard from "./sortable-lead-card";
 
 type PipelineBoardProps = {
-    stages?: Stage[];
+    stages?: PipelineStage[];
     leadsByStage?: Record<string, Lead[]>;
 };
 
@@ -106,7 +106,7 @@ export default function PipelineBoard({
 }
 
 type PipelineColumnProps = {
-    stage: Stage;
+    stage: PipelineStage;
     leads: Lead[];
 };
 

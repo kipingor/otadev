@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Inertia } from '@inertiajs/inertia';
+import axios from 'axios';
 import {
     DndContext,
     closestCenter,
@@ -46,7 +46,7 @@ const PipelineView = ({ leads }) => {
         })
     );
 
-    const handleDragEnd = (event) => {
+    const handleDragEnd = async (event) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
 
@@ -67,7 +67,11 @@ const PipelineView = ({ leads }) => {
             [overStage]: newOverStageLeads,
         });
 
-        Inertia.put(`/leads/${movedLead.id}`, { status: overStage });
+        try {
+            await axios.put(`/leads/${movedLead.id}`, { status: overStage });
+        } catch (err) {
+            console.error('Failed to update lead status', err);
+        }
     };
 
     return (

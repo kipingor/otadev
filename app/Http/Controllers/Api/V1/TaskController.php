@@ -6,6 +6,7 @@ use App\Events\TaskUpdated;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Task;
+use App\Models\Project;
 use Illuminate\Http\JsonResponse;
 
 class TaskController extends Controller
@@ -24,8 +25,16 @@ class TaskController extends Controller
 
         $task = Task::create($data);
 
-
         return response()->json(['ok' => true, 'task' => $task]);
+    }
+
+    /**
+     * Return tasks for a given project.
+     */
+    public function index(Project $project): JsonResponse
+    {
+        $tasks = $project->tasks()->with('assignee:id,name')->get();
+        return response()->json($tasks);
     }
 
 

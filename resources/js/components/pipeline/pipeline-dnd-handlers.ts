@@ -1,5 +1,25 @@
-import { arrayMove } from '@dnd-kit/sortable';
+import axios from 'axios';
 
+type ToastOpts = { title: string; description?: string; variant?: 'default' | 'destructive' };
+
+const showToast = (opts: ToastOpts) => {
+    try {
+        // prefer a global toast helper if available
+        const g = (globalThis as any) || window as any;
+        if (g?.toast && typeof g.toast === 'function') {
+            g.toast(opts);
+            return;
+        }
+    } catch {}
+
+    // fallback to alert for visibility during dev
+    if (opts.variant === 'destructive') {
+        alert(`${opts.title}\n${opts.description ?? ''}`);
+    } else {
+        // non-blocking console log for success/info
+        console.info(opts.title, opts.description ?? '');
+    }
+};
 
 export const handleDragEnd = ({ event, columns, setColumns }: any) => {
     const { active, over } = event;
@@ -35,9 +55,36 @@ export const handleDragEnd = ({ event, columns, setColumns }: any) => {
     destination.leads.splice(destinationIndex, 0, moved);
 
 
+    // keep a shallow clone for possible rollback
+    const prevColumns = JSON.parse(JSON.stringify(columns));
+
     setColumns(newColumns);
 
+    // POST update to server (optimistic, will rollback on failure)
+    (async () => {
+        try {
+            const { data, status } = await axios.post(
+                '/api/v1/pipelines/move',
+                { lead_id: activeId, to_column: destination.id },
+                { withCredentials: true }
+            );
 
-    // TODO: POST update to server
-    // axios.post('/api/pipeline/move', { lead_id: activeId, to_column: destination.id });
+            if (status >= 200 && status < 300) {
+                showToast({ title: 'Moved', description: 'Item moved successfully' });
+                // optionally reconcile server response if it contains canonical ordering
+                if (data?.stages) {
+                    // Expect server to return updated structure; caller may refresh
+                }
+                return;
+            }
+
+            console.error('Failed to move pipeline item', status, data);
+            showToast({ title: 'Move failed', description: String(data ?? status), variant: 'destructive' });
+            setColumns(prevColumns);
+        } catch (err: any) {
+            console.error('Error moving pipeline item:', err);
+            showToast({ title: 'Move error', description: err?.message ?? String(err), variant: 'destructive' });
+            setColumns(prevColumns);
+        }
+    })();
 };

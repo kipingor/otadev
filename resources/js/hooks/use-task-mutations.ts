@@ -1,5 +1,6 @@
 import type { Task } from '@/types/task';
 import { useState } from 'react';
+import axios from 'axios';
 
 /**
  * useTaskMutations
@@ -24,7 +25,7 @@ export default function useTaskMutations(
         return out;
     };
 
-    const createTask = async (payload: Partial<Task> & { project_id: number | string }) => {
+    const createTask = async (payload: Partial<Task> & { project_id?: number | string; projectId?: number | string }) => {
         setError(null);
         // Optimistic: add a temporary task to state
         const tempId = `temp-${Date.now()}`;
@@ -38,25 +39,25 @@ export default function useTaskMutations(
         });
 
         try {
-            const res = await fetch(`/api/v1/tasks`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                credentials: 'same-origin',
-                body: JSON.stringify(payload),
-            });
-
-            if (!res.ok) {
-                const text = await res.text();
-                throw new Error(`Failed to create task: ${res.status} ${text}`);
+            // normalize project id key (accept either `project_id` or `projectId`)
+            if ((payload as any).projectId && !(payload as any).project_id) {
+                (payload as any).project_id = (payload as any).projectId;
+                delete (payload as any).projectId;
             }
 
-            const created: Task = await res.json();
+            // Use axios for consistent request behavior and include credentials
+            const res = await axios.post(`/api/v1/tasks`, payload, { withCredentials: true });
+
+            const body = res.data;
+            const created: Task = (body && (body as any).task) ? (body as any).task : (body as any);
+
             // Replace temp task with real task
             setTasksByStatus((current) => {
                 const copy = cloneTasks(current);
                 copy[tempTask.status] = copy[tempTask.status].map((t) => (t.id === tempId ? created : t));
                 return copy;
             });
+            return created;
         } catch (err: any) {
             // Rollback
             setTasksByStatus((current) => {
@@ -64,8 +65,10 @@ export default function useTaskMutations(
                 copy[tempTask.status] = copy[tempTask.status].filter((t) => t.id !== tempId);
                 return copy;
             });
-            setError(err?.message ?? 'Error creating task');
-            throw err;
+            const message = err?.response?.data?.message ?? err?.message ?? 'Error creating task';
+            setError(message);
+            // surface error
+            throw new Error(message);
         }
     };
 
@@ -97,7 +100,8 @@ export default function useTaskMutations(
                 throw new Error(`Failed to update task: ${res.status} ${text}`);
             }
 
-            const updated: Task = await res.json();
+            const body = await res.json();
+            const updated: Task = (body && body.task) ? body.task : body;
             // merge canonical server response
             setTasksByStatus((current) => {
                 const copy = cloneTasks(current);
@@ -162,8 +166,8 @@ export default function useTaskMutations(
 
 /**
  * Suggested test stub files:
- * resources/js/hooks/__tests__/useTasks.test.tsx
- * resources/js/hooks/__tests__/useTaskMutations.test.tsx
+ * resources/js/hooks/__tests__/use-tasks.test.tsx
+ * resources/js/hooks/__tests__/use-task-mutations.test.tsx
  *
  * Test ideas:
  * - useTasks: ensure GET request fetches tasks and groups correctly

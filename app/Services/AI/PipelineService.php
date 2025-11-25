@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Services;
+namespace App\Services\AI;
 
 use App\Events\LeadMoved;
 use App\Events\LeadUpdated;

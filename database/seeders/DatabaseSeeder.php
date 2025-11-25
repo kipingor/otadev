@@ -16,7 +16,7 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::firstOrCreate(
+        $user = User::firstOrCreate(
             ['email' => 'kipingor@gmail.com'],
             [
                 'name' => 'Antony Kipingor',
@@ -24,6 +24,10 @@ class DatabaseSeeder extends Seeder
                 'email_verified_at' => now(),
             ]
         );
+
+        // Ensure admin role exists and assign it to the seeded user
+        $adminRole = \App\Models\Role::firstOrCreate(['name' => 'admin']);
+        $user->roles()->syncWithoutDetaching([$adminRole->id]);
 
         \App\Models\User::factory(10)->create();
         \App\Models\Lead::factory(20)->create();

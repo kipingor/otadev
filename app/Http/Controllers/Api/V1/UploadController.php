@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\JsonResponse;
 use App\Models\LeadDocument;
+use App\Services\DocumentParserService;
+use App\Jobs\ProcessLeadDocument;
 
 class UploadController extends Controller
 {
@@ -19,8 +21,7 @@ class UploadController extends Controller
 
 
         $file = $request->file('file');
-        $path = $file->store('lead_documents');
-
+        $path = $file->storeAs('lead_documents', $file->hashName(), 'private');
 
         $doc = LeadDocument::create([
             'lead_id' => $request->input('lead_id'),
@@ -29,8 +30,29 @@ class UploadController extends Controller
             'mime_type' => $file->getClientMimeType(),
             'size' => $file->getSize(),
             'storage_path' => $path,
+            'status' => LeadDocument::STATUS_QUEUED,
         ]);
 
+        // best-effort extract
+        try {
+            $disk = Storage::disk('private');
+            $absolutePath = method_exists($disk, 'path') ? $disk->path($path) : storage_path('app/' . $path);
+            $parser = new DocumentParserService();
+            $text = $parser->extractText($absolutePath, $file->getClientMimeType());
+            if (!empty($text)) {
+                $doc->extracted_text = ['text' => $text];
+                $doc->save();
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        // dispatch background job
+        try {
+            ProcessLeadDocument::dispatch($doc->id)->onConnection('database');
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return response()->json(['ok' => true, 'document' => $doc]);
     }

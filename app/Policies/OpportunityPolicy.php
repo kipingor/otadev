@@ -13,4 +13,12 @@ class OpportunityPolicy
     {
         //
     }
+
+    /**
+     * Determine whether the user can create opportunities.
+     */
+    public function create(\App\Models\User $user): bool
+    {
+        return $user->hasRole('admin');
+    }
 }

@@ -6,7 +6,8 @@
  *  - Mock Service Worker (MSW) for API mocking
  */
 
-import { renderHook, act, waitFor } from '@testing-library/react';
+import React from 'react';
+import { render, act, waitFor } from '@testing-library/react';
 import { setupServer } from 'msw/node';
 import { rest } from 'msw';
 import { usePipeline } from '../use-pipeline';
@@ -69,14 +70,22 @@ afterAll(() => server.close());
 // ------------------------------
 describe('usePipeline hook', () => {
     it('loads pipeline data successfully', async () => {
-        const { result } = renderHook(() => usePipeline());
+        const ref: any = React.createRef();
 
-        expect(result.current.loading).toBe(true);
+        const Wrapper = React.forwardRef(function Wrapper(_props, ref) {
+            const hook = usePipeline();
+            React.useImperativeHandle(ref, () => hook, [hook]);
+            return null;
+        });
 
-        await waitFor(() => expect(result.current.loading).toBe(false));
+        render(<Wrapper ref={ref} />);
 
-        expect(result.current.stages).toHaveLength(3);
-        expect(result.current.itemsByStage.new).toHaveLength(2);
+        expect(ref.current.loading).toBe(true);
+
+        await waitFor(() => expect(ref.current.loading).toBe(false));
+
+        expect(ref.current.stages).toHaveLength(3);
+        expect(ref.current.itemsByStage.new).toHaveLength(2);
     });
 
     it('handles API failure gracefully', async () => {
@@ -86,25 +95,39 @@ describe('usePipeline hook', () => {
             })
         );
 
-        const { result } = renderHook(() => usePipeline());
+        const ref: any = React.createRef();
+        const Wrapper = React.forwardRef(function Wrapper(_props, ref) {
+            const hook = usePipeline();
+            React.useImperativeHandle(ref, () => hook, [hook]);
+            return null;
+        });
 
-        await waitFor(() => expect(result.current.loading).toBe(false));
-        expect(result.current.error).toContain('Failed');
+        render(<Wrapper ref={ref} />);
+
+        await waitFor(() => expect(ref.current.loading).toBe(false));
+        expect(ref.current.error).toContain('Failed');
     });
 
     it('optimistically moves a lead to a new stage and confirms success', async () => {
-        const { result } = renderHook(() => usePipeline({ stages: mockStages, leadsByStage: mockLeadsByStage }));
-
-        // Initial: 2 leads in "new", 0 in "contacted"
-        expect(result.current.itemsByStage.new).toHaveLength(2);
-        expect(result.current.itemsByStage.contacted).toHaveLength(0);
-
-        await act(async () => {
-            await result.current.moveLead({ leadId: 1, toStageKey: 'contacted' });
+        const ref: any = React.createRef();
+        const Wrapper = React.forwardRef(function Wrapper(_props, ref) {
+            const hook = usePipeline({ stages: mockStages, leadsByStage: mockLeadsByStage });
+            React.useImperativeHandle(ref, () => hook, [hook]);
+            return null;
         });
 
-        expect(result.current.itemsByStage.new).toHaveLength(1);
-        expect(result.current.itemsByStage.contacted[0].pipeline_stage_key).toBe('contacted');
+        render(<Wrapper ref={ref} />);
+
+        // Initial: 2 leads in "new", 0 in "contacted"
+        expect(ref.current.itemsByStage.new).toHaveLength(2);
+        expect(ref.current.itemsByStage.contacted).toHaveLength(0);
+
+        await act(async () => {
+            await ref.current.moveLead({ leadId: 1, toStageKey: 'contacted' });
+        });
+
+        expect(ref.current.itemsByStage.new).toHaveLength(1);
+        expect(ref.current.itemsByStage.contacted[0].pipeline_stage_key).toBe('contacted');
     });
 
     it('rolls back if API move fails', async () => {
@@ -112,17 +135,24 @@ describe('usePipeline hook', () => {
             rest.post('/api/v1/pipelines/move', (_req, res, ctx) => res(ctx.status(500), ctx.text('Move failed')))
         );
 
-        const { result } = renderHook(() => usePipeline({ stages: mockStages, leadsByStage: mockLeadsByStage }));
+        const ref: any = React.createRef();
+        const Wrapper = React.forwardRef(function Wrapper(_props, ref) {
+            const hook = usePipeline({ stages: mockStages, leadsByStage: mockLeadsByStage });
+            React.useImperativeHandle(ref, () => hook, [hook]);
+            return null;
+        });
+
+        render(<Wrapper ref={ref} />);
 
         await act(async () => {
             try {
-                await result.current.moveLead({ leadId: 1, toStageKey: 'qualified' });
+                await ref.current.moveLead({ leadId: 1, toStageKey: 'qualified' });
             } catch {
                 // Expected failure
             }
         });
 
         // After rollback, lead should remain in "new"
-        expect(result.current.itemsByStage.new.find((l) => l.id === 1)).toBeTruthy();
+        expect(ref.current.itemsByStage.new.find((l) => l.id === 1)).toBeTruthy();
     });
 });

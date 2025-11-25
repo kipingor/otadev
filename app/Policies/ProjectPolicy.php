@@ -13,4 +13,12 @@ class ProjectPolicy
     {
         //
     }
+
+    /**
+     * Determine whether the user can create projects.
+     */
+    public function create(\App\Models\User $user): bool
+    {
+        return $user->hasRole('admin');
+    }
 }

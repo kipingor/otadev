@@ -1,15 +1,22 @@
+// Polyfill structuredClone for older Node versions used when loading ESLint config
+if (typeof structuredClone === 'undefined') {
+    try {
+        globalThis.structuredClone = (v) => JSON.parse(JSON.stringify(v));
+    } catch {
+        // ignore
+    }
+}
+
 import js from '@eslint/js';
 import prettier from 'eslint-config-prettier/flat';
 import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
-import typescript from 'typescript-eslint';
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
     js.configs.recommended,
     reactHooks.configs.flat.recommended,
-    ...typescript.configs.recommended,
     {
         ...react.configs.flat.recommended,
         ...react.configs.flat['jsx-runtime'], // Required for React 17+

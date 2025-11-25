@@ -50,4 +50,24 @@ class Opportunity extends Model
     {
         return $this->hasOne(Project::class);
     }
+
+    /**
+     * Get the proposals for this opportunity.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function proposals()
+    {
+        return $this->hasMany(Proposal::class);
+    }
+
+    /**
+     * Get the emails associated with this opportunity.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function emails()
+    {
+        return $this->hasMany(Email::class);
+    }
 }

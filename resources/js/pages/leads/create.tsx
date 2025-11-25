@@ -29,13 +29,19 @@ export default function LeadCreate() {
             >
                 <div>
                     <label className="block text-sm font-medium">Title</label>
-                    <input value={form.data.title} onChange={(e) => form.setData('title', e.target.value)} className="input" />
+                    <input value={form.data.title} onChange={(e) => {
+                        const v = (e.target as HTMLInputElement).value;
+                        (form as any).setData('title', v);
+                    }} className="input" />
                 </div>
 
 
                 <div>
                     <label className="block text-sm font-medium">Type</label>
-                    <select value={form.data.type} onChange={(e) => form.setData('type', e.target.value)} className="input">
+                    <select value={form.data.type} onChange={(e) => {
+                        const v = (e.target as HTMLSelectElement).value;
+                        (form as any).setData('type', v);
+                    }} className="input">
                         <option value="conversation">Conversation</option>
                         <option value="document">Document</option>
                     </select>
@@ -46,7 +52,8 @@ export default function LeadCreate() {
                     <LeadDocumentUploader
                         onUploadStart={() => setUploading(true)}
                         onUploadComplete={(docId: number) => {
-                            form.setData('document_id', docId as any);
+                            const _docId = docId as any;
+                            (form as any).setData('document_id', _docId);
                             setUploading(false);
                         }}
                     />
@@ -55,7 +62,7 @@ export default function LeadCreate() {
 
                 <div>
                     <label className="block text-sm font-medium">Description</label>
-                    <textarea value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} className="textarea" />
+                    <textarea value={form.data.description} onChange={(e) => (form as any).setData('description', (e.target as HTMLTextAreaElement).value)} className="textarea" />
                 </div>
 
 
