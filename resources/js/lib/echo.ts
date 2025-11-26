@@ -9,3 +9,6 @@ export const echo = configureEcho({
     forceTLS: false,
     enabledTransports: ["ws", "wss"],
 });
+
+// Also export as default for compatibility
+export default echo;
