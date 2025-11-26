@@ -3,7 +3,10 @@ import { echo } from '@/lib/echo';
 
 export function useLeadDocumentsRealtime(leadId: number | string, onUpdate: (payload: any) => void) {
     useEffect(() => {
-        if (!leadId) return;
+        if (!leadId || !echo) {
+            if (!echo) console.warn('Echo is not configured, skipping real-time updates');
+            return;
+        }
 
         const channel = (echo as any).private(`leads.${leadId}`);
 

@@ -7,6 +7,11 @@ export function useLeads() {
     const queryClient = useQueryClient();
 
     useEffect(() => {
+        if (!echo) {
+            console.warn('Echo is not configured, skipping real-time updates');
+            return;
+        }
+        
         const channel = echo.channel("leads");
 
         channel.listen(".lead.created", (lead: Lead) => {

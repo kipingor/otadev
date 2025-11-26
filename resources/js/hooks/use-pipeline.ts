@@ -75,7 +75,11 @@ export function usePipeline(initialData?: {
 
   /** Real-time pipeline event listener */
   useEffect(() => {
-    // No need to check for echo, since 'echo' is always defined (see echo.ts)
+    if (!echo) {
+      console.warn('Echo is not configured, skipping real-time updates');
+      return;
+    }
+    
     const channel = (echo as unknown as EchoClient).private("pipeline");
 
     const onPipelineMoved = (payload: { lead: Lead }) => {

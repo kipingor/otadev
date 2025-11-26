@@ -4,6 +4,11 @@ import { Lead } from "@/types";
 
 export function usePipelineRealtime(onLeadMoved: (lead: Lead, from: string, to: string) => void) {
     useEffect(() => {
+        if (!echo) {
+            console.warn('Echo is not configured, skipping real-time updates');
+            return;
+        }
+        
         const channel = echo.channel("pipeline");
 
         channel.listen(".lead.moved", (event: any) => {
