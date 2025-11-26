@@ -142,7 +142,7 @@ class DashboardMetricsService
                 ];
             });
 
-        $recentOpportunities = Opportunity::with('user')
+        $recentOpportunities = Opportunity::with('owner')
             ->latest()
             ->limit($limit / 2)
             ->get()
@@ -152,7 +152,7 @@ class DashboardMetricsService
                     'title' => "Opportunity updated: {$opportunity->title}",
                     'description' => "Stage: {$opportunity->stage}",
                     'created_at' => $opportunity->updated_at,
-                    'user' => $opportunity->user?->name
+                    'user' => $opportunity->owner?->name
                 ];
             });
 
