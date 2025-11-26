@@ -30,6 +30,7 @@ Route::get('/', function () {
 // Authenticated routes
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/api/dashboard/metrics', [DashboardController::class, 'metrics'])->name('dashboard.metrics');
 
     Route::resource('leads', LeadController::class);
     Route::resource('opportunities', OpportunityController::class);
