@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import axios from "axios";
-import echo from "@/lib/echo";
+import { echo } from "@/lib/echo";
 import { Lead } from "@/types";
 
 type EchoChannel = {
