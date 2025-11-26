@@ -13,7 +13,7 @@ import { AreaChart } from '@/components/charts/AreaChart';
 import { useDashboardMetrics } from '@/hooks/use-dashboard-metrics';
 import { useDashboardRealtime } from '@/hooks/use-dashboard-realtime';
 import { Skeleton } from '@/components/ui/skeleton';
-import { RefreshCw, TrendingUp, Users, FileText, Target, CheckCircle } from 'lucide-react';
+import { RefreshCw, TrendingUp, Users, FileText, Target, CheckCircle, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -39,30 +39,37 @@ function StatCard({
     loading?: boolean;
 }) {
     return (
-        <Card className="p-4">
+        <Card className="relative overflow-hidden border-0 bg-gradient-to-br from-card to-card/50 shadow-sm hover:shadow-md transition-all duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{title}</CardTitle>
-                {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
+                <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+                {Icon && (
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                        <Icon className="h-4 w-4 text-primary" />
+                    </div>
+                )}
             </CardHeader>
-            <CardContent>
+            <CardContent className="pb-2">
                 {loading ? (
                     <Skeleton className="h-8 w-20" />
                 ) : (
-                    <div className="text-2xl font-bold">{value}</div>
+                    <div className="text-3xl font-bold tracking-tight">{value}</div>
                 )}
                 {trend && !loading && (
-                    <p className={`text-xs ${trend.value >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <p className={`text-xs flex items-center gap-1 mt-1 ${trend.value >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                        <TrendingUp className={`h-3 w-3 ${trend.value < 0 ? 'rotate-180' : ''}`} />
                         {trend.value >= 0 ? '+' : ''}{trend.value}% {trend.label}
                     </p>
                 )}
             </CardContent>
-            <CardFooter>
-                {href ? (
-                    <Link href={href} className="text-sm text-primary-600 hover:underline">
-                        View all
-                    </Link>
-                ) : null}
-            </CardFooter>
+            {href && (
+                <CardFooter className="pt-2">
+                    <Button variant="ghost" size="sm" asChild className="h-auto p-0 text-xs">
+                        <Link href={href}>
+                            View all →
+                        </Link>
+                    </Button>
+                </CardFooter>
+            )}
         </Card>
     );
 }
@@ -89,17 +96,23 @@ export default function Dashboard() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Dashboard" />
 
-            <div className="flex h-full flex-1 flex-col gap-6 overflow-x-auto rounded-xl p-4">
+            <div className="flex h-full flex-1 flex-col gap-8 p-6">
                 {/* Header with refresh button */}
                 <div className="flex items-center justify-between">
-                    <h1 className="text-2xl font-bold">Dashboard</h1>
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+                        <p className="text-muted-foreground">
+                            Welcome back! Here's what's happening with your business today.
+                        </p>
+                    </div>
                     <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={() => refetch()}
                         disabled={isFetching}
+                        className="gap-2"
                     >
-                        <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
+                        <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
                         Refresh
                     </Button>
                 </div>
@@ -149,10 +162,15 @@ export default function Dashboard() {
                 </div>
 
                 {/* Charts Row 1 */}
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Leads Over Time (30 Days)</CardTitle>
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <Card className="border-0 bg-gradient-to-br from-card to-card/50 shadow-sm">
+                        <CardHeader className="pb-4">
+                            <CardTitle className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
+                                    <TrendingUp className="h-4 w-4 text-blue-600" />
+                                </div>
+                                Leads Over Time (30 Days)
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
                             {isLoading ? (
@@ -172,9 +190,14 @@ export default function Dashboard() {
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Revenue Over Time (6 Months)</CardTitle>
+                    <Card className="border-0 bg-gradient-to-br from-card to-card/50 shadow-sm">
+                        <CardHeader className="pb-4">
+                            <CardTitle className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
+                                    <BarChart3 className="h-4 w-4 text-emerald-600" />
+                                </div>
+                                Revenue Over Time (6 Months)
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
                             {isLoading ? (
@@ -196,10 +219,15 @@ export default function Dashboard() {
                 </div>
 
                 {/* Charts Row 2 */}
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Opportunity Pipeline</CardTitle>
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                    <Card className="border-0 bg-gradient-to-br from-card to-card/50 shadow-sm">
+                        <CardHeader className="pb-4">
+                            <CardTitle className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10">
+                                    <Target className="h-4 w-4 text-purple-600" />
+                                </div>
+                                Opportunity Pipeline
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
                             {isLoading ? (
@@ -218,9 +246,14 @@ export default function Dashboard() {
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Pipeline Value by Stage</CardTitle>
+                    <Card className="border-0 bg-gradient-to-br from-card to-card/50 shadow-sm">
+                        <CardHeader className="pb-4">
+                            <CardTitle className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10">
+                                    <BarChart3 className="h-4 w-4 text-amber-600" />
+                                </div>
+                                Pipeline Value by Stage
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
                             {isLoading ? (
@@ -240,9 +273,14 @@ export default function Dashboard() {
                         </CardContent>
                     </Card>
 
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Task Completion</CardTitle>
+                    <Card className="border-0 bg-gradient-to-br from-card to-card/50 shadow-sm">
+                        <CardHeader className="pb-4">
+                            <CardTitle className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/10">
+                                    <CheckCircle className="h-4 w-4 text-green-600" />
+                                </div>
+                                Task Completion
+                            </CardTitle>
                         </CardHeader>
                         <CardContent>
                             {isLoading ? (
@@ -253,8 +291,8 @@ export default function Dashboard() {
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    <div className="text-center">
-                                        <div className="text-3xl font-bold text-green-600">
+                                    <div className="text-center mb-4">
+                                        <div className="text-4xl font-bold text-primary mb-1">
                                             {currentMetrics?.task_completion?.completion_rate || 0}%
                                         </div>
                                         <div className="text-sm text-muted-foreground">Completion Rate</div>
@@ -280,9 +318,14 @@ export default function Dashboard() {
                 </div>
 
                 {/* Recent Activity */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Recent Activity</CardTitle>
+                <Card className="border-0 bg-gradient-to-br from-card to-card/50 shadow-sm">
+                    <CardHeader className="pb-4">
+                        <CardTitle className="flex items-center gap-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
+                                <Users className="h-4 w-4 text-blue-600" />
+                            </div>
+                            Recent Activity
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
                         {isLoading ? (
