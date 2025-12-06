@@ -15,7 +15,7 @@ class OpenAIClient
     {
         $this->apiKey = config('services.openai.key');
         $this->baseUrl = config('services.openai.base_url', 'https://api.openai.com/v1');
-        $this->model = config('services.openai.model', 'gpt-4');
+        $this->model = config('services.openai.model', 'gpt-5');
     }
 
     /**

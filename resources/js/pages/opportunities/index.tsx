@@ -1,60 +1,63 @@
 import AppLayout from '@/layouts/app-layout';
-import { Head, Link, usePage } from '@inertiajs/react';
 import { type BreadcrumbItem } from '@/types';
+import { Head, Link, usePage } from '@inertiajs/react';
+import OpportunityCard from '@/pages/opportunities/opportunity-card';
+import { Button } from '@/components/ui/button';
 
 const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Opportunities', href: '/opportunities' },
+    {
+        title: 'Opportunities',
+        href: '/opportunities',
+    },
 ];
 
 export default function OpportunitiesIndex() {
-    const { opportunities } = usePage<{ opportunities: { data: any[] } }>().props;
+    const { opportunities } = usePage<{ opportunities: { data: any[] } }>()
+        .props;
     const items = opportunities?.data ?? [];
 
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Opportunities" />
 
-            <div className="flex items-center justify-between">
-                <h1 className="text-2xl font-semibold">Opportunities</h1>
-                <Link href="/opportunities/create" className="btn">
-                    New opportunity
-                </Link>
-            </div>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {items.map((opportunity) => (
-                    <div key={opportunity.id} className="rounded-xl border p-4 space-y-3 shadow-sm bg-card">
-                        <div className="flex items-center justify-between">
-                            <h3 className="font-semibold text-lg">{opportunity.title}</h3>
-                            <span className="rounded-full bg-muted px-3 py-1 text-xs uppercase tracking-wide">
-                                {opportunity.stage}
-                            </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                            {opportunity.summary ?? 'No summary provided yet.'}
+            <div className="flex h-full flex-1 flex-col gap-8 p-6">
+                {/* Header with title and "New Opportunity" button */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            Opportunities
+                        </h1>
+                        <p className="text-muted-foreground">
+                            Manage your sales opportunities and track potential
+                            deals.
                         </p>
-                        <div className="text-sm text-muted-foreground">
-                            Lead: {opportunity.lead?.title ?? 'n/a'} • Owner: {opportunity.owner?.name ?? 'n/a'}
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                            <div>
-                                {opportunity.currency ?? 'USD'}{' '}
-                                {Number(opportunity.estimated_value ?? 0).toLocaleString()}
-                            </div>
-                            <Link href={`/opportunities/${opportunity.id}`} className="text-primary underline text-sm">
-                                View
+                    </div>
+                    <div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            asChild
+                            className="h-8 px-3 text-xs"
+                        >
+                            <Link
+                                href="/opportunities/create"
+                                className="p-1"
+                            >
+                                New Opportunity +
                             </Link>
-                        </div>
+                        </Button>
                     </div>
-                ))}
+                </div>
 
-                {!items.length && (
-                    <div className="rounded-xl border p-6 text-center text-muted-foreground">
-                        No opportunities yet. Create the first one to get started.
-                    </div>
-                )}
+                <div className="grid gap-6 grid-col-1 lg:grid-cols-2 mt-4">
+                    {items.map((opportunity: any) => (
+                        <OpportunityCard
+                            key={opportunity.id}
+                            opportunity={opportunity}
+                        />
+                    ))}
+                </div>
             </div>
         </AppLayout>
     );
 }
-

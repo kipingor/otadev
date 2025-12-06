@@ -25,6 +25,12 @@ class Task extends Model
         'metadata',
     ];
 
+    protected $casts = [
+        'startAt' => 'date',
+        'endAt' => 'date',
+        'metadata' => 'array',
+    ];
+
     public function project()
     {
         return $this->belongsTo(Project::class);
@@ -39,4 +45,10 @@ class Task extends Model
     {
         return $this->belongsTo(User::class, 'assigned_to');
     }
+
+    public function timeLogs()
+    {
+        return $this->hasMany(TimeLog::class);
+    }
+
 }

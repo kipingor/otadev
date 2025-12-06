@@ -42,7 +42,7 @@ class LeadPolicy
      */
     public function update(User $user, Lead $lead): bool
     {
-        return $user->hasRole('admin') || $lead->created_by == $user->id || $lead->owner_id == $user->id;
+        return $user->hasRole('admin') || $lead->created_by === $user->id || $lead->owner_id === $user->id;
     }
 
     /**

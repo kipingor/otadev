@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Spatie\Permission\Traits\HasRoles;
 use Spatie\Permission\Traits\HasPermissions;
 
@@ -53,27 +52,9 @@ class User extends Authenticatable
         ];
     }
 
-    /**
-     * Define the roles relationship.
-     *
-     * @return BelongsToMany
-     */
-    public function roles(): BelongsToMany
+    public function timeLogs()
     {
-        return $this->belongsToMany(Role::class);
+        return $this->hasMany(TimeLog::class);
     }
 
-    /**
-     * Check if user has a specific role.
-     *
-     * @param string|array $role
-     * @return bool
-     */
-    public function hasRole($role): bool
-    {
-        if (is_array($role)) {
-            return $this->roles()->whereIn('name', $role)->exists();
-        }
-        return $this->roles()->where('name', $role)->exists();
-    }
 }

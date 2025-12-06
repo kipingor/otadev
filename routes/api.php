@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\LeadDocumentController;
 use App\Http\Controllers\Api\V1\LeadQuestionController;
+use App\Http\Controllers\Api\V1\ProjectController;
 
 Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     // AI endpoints
@@ -15,7 +16,7 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     Route::post('ai/draft-email', [AiController::class, 'draftEmail']);
     
     // Upload endpoints
-    Route::post('upload/lead-document', [UploadController::class, 'uploadLeadDocument']);
+    Route::post('/upload/lead-document', [UploadController::class, 'uploadLeadDocument']);
 
     // Pipeline endpoints
     Route::get('/pipeline', [PipelineController::class, 'index']);
@@ -39,4 +40,8 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     Route::delete('tasks/{task}', [TaskController::class, 'destroy']);
 
     // Additional API endpoints will be added for proposals, resources, accounting, etc.
+});
+
+Route::post("test-upload", function () {
+    return response()->json(["ok" => true]);
 });

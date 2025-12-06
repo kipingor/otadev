@@ -4,8 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
      */
@@ -19,12 +18,14 @@ return new class extends Migration
             $table->string('mime_type')->nullable();
             $table->bigInteger('size')->nullable();
             $table->string('storage_path')->nullable(); // internal path or s3 path
+            $table->string('status')->default('queued');
             $table->json('extracted_text')->nullable(); // optionally store extracted text
             $table->json('ai_summary')->nullable(); // AI extraction summary
             $table->timestamps();
             $table->softDeletes();
 
             $table->index(['lead_id']);
+            $table->index(['status']);
         });
     }
 

@@ -62,19 +62,6 @@ export default function ProjectsIndex() {
                     </Card>
                 ))}
             </div>
-
-
-            <div className="mt-4 grid gap-4 md:grid-cols-2">
-                {projectList.map((p: any) => (
-                    <div key={p.id} className="rounded-lg border p-4">
-                        <h3 className="font-semibold">{p.name}</h3>
-                        <p className="text-sm text-muted-foreground">Status: {p.status}</p>
-                        <div className="mt-2">
-                            <Link href={`/projects/${p.id}`} className="text-sm underline">Open</Link>
-                        </div>
-                    </div>
-                ))}
-            </div>
         </AppLayout>
     );
 }
