@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '@/lib/axios';
 
 interface DashboardMetrics {
     overview: {
@@ -45,11 +45,17 @@ export function useDashboardMetrics(refetchInterval: number = 30000) {
     return useQuery<DashboardMetrics>({
         queryKey: ['dashboard-metrics'],
         queryFn: async () => {
-            const response = await axios.get('/api/dashboard/metrics');
-            return response.data;
+            // Dashboard metrics are exposed as a web route at /api/dashboard/metrics
+            // (this repo places them under web routes, not api/v1) — use fetch
+            const res = await fetch('/api/dashboard/metrics', {
+                credentials: 'include',
+                headers: { Accept: 'application/json' },
+            });
+            if (!res.ok) throw new Error(`Failed to load dashboard metrics: ${res.status}`);
+            return (await res.json()) as DashboardMetrics;
         },
         refetchInterval,
-        staleTime: 10000, // Consider data stale after 10 seconds
-        gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
+        staleTime: 10000,
+        cacheTime: 5 * 60 * 1000,
     });
 }
