@@ -1,3 +1,48 @@
+import React from 'react';
+import {
+  ResponsiveContainer,
+  PieChart as RePieChart,
+  Pie,
+  Cell,
+  Tooltip,
+} from 'recharts';
+
+type Props = {
+  data: any[];
+  dataKey: string;
+  nameKey: string;
+  height?: number;
+  colors?: string[];
+  formatTooltip?: (value: any, name?: string) => [string, string] | string;
+};
+
+const DEFAULT_COLORS = ['#7c3aed', '#6366f1', '#06b6d4', '#f59e0b', '#10b981'];
+
+export function PieChart({ data = [], dataKey, nameKey, height = 300, colors = DEFAULT_COLORS, formatTooltip }: Props) {
+  return (
+    <div style={{ width: '100%', height }}>
+      <ResponsiveContainer>
+        <RePieChart>
+          <Tooltip formatter={(value: any, name: any) => {
+            if (formatTooltip) {
+              const formatted = formatTooltip(value, name);
+              if (Array.isArray(formatted)) return formatted;
+              return [String(formatted), name];
+            }
+            return [value, name];
+          }} />
+          <Pie data={data} dataKey={dataKey} nameKey={nameKey} outerRadius={80} fill="#8884d8">
+            {data.map((_, i) => (
+              <Cell key={`cell-${i}`} fill={colors[i % colors.length]} />
+            ))}
+          </Pie>
+        </RePieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+export default PieChart;
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 interface PieChartProps {

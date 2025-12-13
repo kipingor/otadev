@@ -1,3 +1,47 @@
+import React from 'react';
+import {
+  ResponsiveContainer,
+  BarChart as ReBarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts';
+
+type Props = {
+  data: any[];
+  xKey: string;
+  yKey: string;
+  color?: string;
+  formatTooltip?: (value: any, name?: string) => [string, string] | string;
+  height?: number;
+};
+
+export function BarChart({ data = [], xKey, yKey, color = '#8b5cf6', formatTooltip, height = 300 }: Props) {
+  return (
+    <div style={{ width: '100%', height }}>
+      <ResponsiveContainer>
+        <ReBarChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey={xKey} />
+          <YAxis />
+          <Tooltip formatter={(value: any, name: any) => {
+            if (formatTooltip) {
+              const formatted = formatTooltip(value, name);
+              if (Array.isArray(formatted)) return formatted;
+              return [String(formatted), name];
+            }
+            return [value, name];
+          }} />
+          <Bar dataKey={yKey} fill={color} />
+        </ReBarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+export default BarChart;
 import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface BarChartProps {

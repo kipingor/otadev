@@ -1,3 +1,47 @@
+import React from 'react';
+import {
+  ResponsiveContainer,
+  LineChart as ReLineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from 'recharts';
+
+type Props = {
+  data: any[];
+  xKey: string;
+  yKey: string;
+  color?: string;
+  formatTooltip?: (value: any, name?: string) => [string, string] | string;
+  height?: number;
+};
+
+export function LineChart({ data = [], xKey, yKey, color = '#3b82f6', formatTooltip, height = 300 }: Props) {
+  return (
+    <div style={{ width: '100%', height }}>
+      <ResponsiveContainer>
+        <ReLineChart data={data} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey={xKey} />
+          <YAxis />
+          <Tooltip formatter={(value: any, name: any) => {
+            if (formatTooltip) {
+              const formatted = formatTooltip(value, name);
+              if (Array.isArray(formatted)) return formatted;
+              return [String(formatted), name];
+            }
+            return [value, name];
+          }} />
+          <Line type="monotone" dataKey={yKey} stroke={color} strokeWidth={2} dot={false} />
+        </ReLineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+export default LineChart;
 import { LineChart as RechartsLineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 interface LineChartProps {
