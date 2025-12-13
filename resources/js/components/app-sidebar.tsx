@@ -26,11 +26,11 @@ const mainNavItems: NavItem[] = [
         href: dashboard(),
         icon: LayoutGrid,
     },
-    {
-        title: 'Leads',
-        href: leads.index(),
-        icon: FileText,
-    },
+    // {
+    //     title: 'Leads',
+    //     href:leads.index(),
+    //     icon: FileText,
+    // },
     {
         title: 'Pipelines',
         href: pipelines.index(),

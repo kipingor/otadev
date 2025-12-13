@@ -119,13 +119,13 @@ export default function Dashboard() {
 
                 {/* Overview Stats */}
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-6">
-                    <StatCard 
+                    {/* <StatCard 
                         title="Leads" 
                         value={currentMetrics?.overview?.leads ?? '—'} 
                         href={leads.index()} 
                         icon={Users}
                         loading={isLoading}
-                    />
+                    /> */}
                     <StatCard 
                         title="Opportunities" 
                         value={currentMetrics?.overview?.opportunities ?? '—'} 
@@ -140,13 +140,13 @@ export default function Dashboard() {
                         icon={TrendingUp}
                         loading={isLoading}
                     />
-                    <StatCard 
+                    {/* <StatCard 
                         title="Documents" 
                         value={currentMetrics?.overview?.documents ?? '—'} 
                         href={leads.index()} 
                         icon={FileText}
                         loading={isLoading}
-                    />
+                    /> */}
                     <StatCard 
                         title="Active Projects" 
                         value={currentMetrics?.overview?.active_projects ?? '—'} 
