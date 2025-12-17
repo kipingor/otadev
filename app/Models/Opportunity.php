@@ -36,7 +36,7 @@ class Opportunity extends Model
     protected $casts = [
         'ai_suggestions' => 'array',
         'estimated_value' => 'decimal:2',
-        'expected_close_date' => 'datetime',
+        'expected_close_date' => 'datetime:Y-m-d',
     ];
 
     public function lead()

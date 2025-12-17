@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreLeadRequest;
 use App\Models\Lead;
+use App\Services\LeadService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,16 +14,17 @@ class LeadController extends Controller
     /**
      * Display a listing of leads.
      */
+    protected LeadService $service;
+
+    public function __construct(LeadService $service)
+    {
+        $this->service = $service;
+    }
+
     public function index(Request $request): JsonResponse
     {
-        $leads = Lead::with('owner', 'user', 'pipelineStage', 'questions', 'leadDocuments')
-            ->when($request->query('owner_id'), function ($query) use ($request) {
-                $query->where('owner_id', $request->query('owner_id'));
-            })
-            ->when($request->query('pipeline_stage_id'), function ($query) use ($request) {
-                $query->where('pipeline_stage_id', $request->query('pipeline_stage_id'));
-            })
-            ->paginate(15);
+        $filters = $request->only(['owner_id', 'pipeline_stage_id']);
+        $leads = $this->service->list($filters, (int) $request->input('per_page', 15));
 
         return response()->json(['data' => $leads]);
     }
@@ -32,15 +34,8 @@ class LeadController extends Controller
      */
     public function store(StoreLeadRequest $request): JsonResponse
     {
-        $lead = Lead::create(array_merge(
-            $request->validated(),
-            ['created_by' => $request->user()->id]
-        ));
-
-        activity()
-            ->performedOn($lead)
-            ->causedBy($request->user())
-            ->log('Lead created');
+        $data = array_merge($request->validated(), ['created_by' => $request->user()->id]);
+        $lead = $this->service->create($data);
 
         return response()->json([
             'message' => 'Lead created successfully',
@@ -53,6 +48,8 @@ class LeadController extends Controller
      */
     public function show(Lead $lead): JsonResponse
     {
+        $this->authorize('view', $lead);
+
         $lead->load('owner', 'user', 'pipelineStage', 'questions', 'leadDocuments', 'opportunity');
 
         return response()->json(['data' => $lead]);
@@ -63,12 +60,9 @@ class LeadController extends Controller
      */
     public function update(StoreLeadRequest $request, Lead $lead): JsonResponse
     {
-        $lead->update($request->validated());
+        $this->authorize('update', $lead);
 
-        activity()
-            ->performedOn($lead)
-            ->causedBy($request->user())
-            ->log('Lead updated');
+        $lead = $this->service->update($lead, $request->validated());
 
         return response()->json([
             'message' => 'Lead updated successfully',
@@ -81,12 +75,9 @@ class LeadController extends Controller
      */
     public function destroy(Lead $lead, Request $request): JsonResponse
     {
-        $lead->delete();
+        $this->authorize('delete', $lead);
 
-        activity()
-            ->performedOn($lead)
-            ->causedBy($request->user())
-            ->log('Lead deleted');
+        $this->service->delete($lead);
 
         return response()->json(['message' => 'Lead deleted successfully']);
     }

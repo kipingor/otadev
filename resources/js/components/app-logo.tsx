@@ -1,6 +1,6 @@
 import AppLogoIcon from './app-logo-icon';
 
-export default function AppLogo() {
+export default function AppLogo(props: React.HTMLAttributes<HTMLDivElement>) {
     return (
         <>
             <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">

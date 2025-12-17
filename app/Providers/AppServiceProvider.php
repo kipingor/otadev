@@ -12,6 +12,11 @@ use App\Policies\UserPolicy;
 use App\Policies\OpportunityPolicy;
 use App\Policies\ProjectPolicy;
 use App\Policies\LeadPolicy;
+use App\Policies\ActivityPolicy;
+use App\Policies\LeadDocumentPolicy;
+use App\Policies\ConversationPolicy;
+use App\Policies\LeadQuestionPolicy;
+use App\Policies\MilestonePolicy;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -20,7 +25,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(
+            \App\Services\AI\OpenAIClient::class,
+            \App\Services\AI\OpenAIClientGuzzle::class
+        );        
     }
 
     /**
@@ -33,5 +41,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Opportunity::class, OpportunityPolicy::class);
         Gate::policy(Project::class, ProjectPolicy::class);
         Gate::policy(Lead::class, LeadPolicy::class);
+        Gate::policy(LeadQuestionPolicy::class, LeadQuestionPolicy::class);
+        Gate::policy(LeadDocumentPolicy::class, LeadDocumentPolicy::class);
+        Gate::policy(ActivityPolicy::class, ActivityPolicy::class);
+        Gate::policy(ConversationPolicy::class, ConversationPolicy::class);
+        Gate::policy(MilestonePolicy::class, MilestonePolicy::class);
     }
 }

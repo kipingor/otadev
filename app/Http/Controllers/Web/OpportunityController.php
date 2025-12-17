@@ -14,67 +14,90 @@ class OpportunityController extends Controller
 {
     public function index(Request $request)
     {
-        $opportunities = Opportunity::with('lead:id,title', 'owner:id,name')
-            ->orderByDesc('created_at')
-            ->paginate(15)
-            ->withQueryString();
+        $query = $this->getModelQuery(Opportunity::class);
 
-        return Inertia::render('opportunities/index', compact('opportunities'));
+        $query = $this->orderByDesc($query, 'created_at');
+
+        $opportunities = $this->paginateOpportunities($query, 15);
+
+        if ($this->wantsJson($request)) {
+            return $this->jsonResponse($opportunities);
+        }
+
+        return $this->renderInertia('opportunities/index', [
+            'opportunities' => $opportunities,
+        ]);
     }
 
-    public function create()
+    public function show(Request $request, $id)
     {
-        return Inertia::render('opportunities/create', $this->formOptions());
+        $opportunity = $this->getModelWith(Opportunity::class, ['lead', 'owner'])->findOrFail($id);
+
+        if ($this->wantsJson($request)) {
+            return $this->jsonResponse($opportunity);
+        }
+
+        return $this->renderInertia('opportunities/show', [
+            'opportunity' => $opportunity,
+        ]);
+    }
+
+    public function create(Request $request)
+    {
+        $formOptions = $this->formOptions();
+
+        return $this->renderInertia('opportunities/create', $formOptions);
+    }
+
+    public function edit(Request $request, Opportunity $opportunity)
+    {
+        $opportunity = $this->findModelById(Opportunity::class, $opportunity->id);
+        $leads = Lead::select('id', 'title')->orderByDesc('created_at')->limit(100)->get();
+        $owners = User::select('id', 'name')->orderBy('name')->get();
+        $stageOptions = Opportunity::STAGES;
+        $currencyOptions = config('app.supported_currencies', ['USD', 'EUR', 'GBP']);
+        return Inertia::render('opportunities/edit', [
+            'opportunity' => $opportunity,
+            'leads' => $leads,
+            'owners' => $owners,
+            'stageOptions' => $stageOptions,
+            'currencyOptions' => $currencyOptions,
+        ]);
     }
 
     public function store(Request $request)
     {
-        $data = $this->validate($request, $this->rules());
-        $data['owner_id'] = $data['owner_id'] ?? $request->user()->id;
+        $data = $this->validateRequest($request, $this->rules());
 
-        $opportunity = Opportunity::create($data);
+        $opportunity = $this->createOpportunity($data);
 
-        return redirect()
-            ->route('opportunities.show', $opportunity->id)
-            ->with('success', 'Opportunity created.');
+        $this->flashSession('success', 'Opportunity created successfully.');
+
+        return $this->redirectToRoute('opportunities.show', ['opportunity' => $opportunity->id]);
     }
 
-    public function show(Opportunity $opportunity)
+    public function update(Request $request, $id)
     {
-        $opportunity->load('lead:id,title', 'owner:id,name', 'project:id,opportunity_id,name,status');
+        $opportunity = $this->findModelById(Opportunity::class, $id);
 
-        return Inertia::render('opportunities/show', compact('opportunity'));
+        $data = $this->validateRequest($request, $this->rules());
+
+        $this->updateOpportunity($opportunity, $data);
+
+        $this->flashSession('success', 'Opportunity updated successfully.');
+
+        return $this->redirectToRoute('opportunities.show', ['opportunity' => $opportunity->id]);
     }
 
-    public function edit(Opportunity $opportunity)
+    public function destroy(Request $request, $id)
     {
-        $opportunity->load('lead:id,title', 'owner:id,name');
+        $opportunity = $this->findModelById(Opportunity::class, $id);
 
-        return Inertia::render('opportunities/edit', array_merge(
-            ['opportunity' => $opportunity],
-            $this->formOptions()
-        ));
-    }
+        $this->deleteOpportunity($opportunity);
 
-    public function update(Request $request, Opportunity $opportunity)
-    {
-        $data = $this->validate($request, $this->rules());
-        $data['owner_id'] = $data['owner_id'] ?? $opportunity->owner_id ?? $request->user()->id;
+        $this->flashSession('success', 'Opportunity deleted successfully.');
 
-        $opportunity->update($data);
-
-        return redirect()
-            ->route('opportunities.show', $opportunity->id)
-            ->with('success', 'Opportunity updated.');
-    }
-
-    public function destroy(Opportunity $opportunity)
-    {
-        $opportunity->delete();
-
-        return redirect()
-            ->route('opportunities.index')
-            ->with('success', 'Opportunity deleted.');
+        return $this->redirectToRoute('opportunities.index');
     }
 
     protected function formOptions(): array
@@ -101,5 +124,84 @@ class OpportunityController extends Controller
             'ai_suggestions' => ['nullable', 'array'],
         ];
     }
-}
 
+    private function createOpportunity(array $data)
+    {
+        return Opportunity::create($data);
+    }
+
+    private function updateOpportunity(Opportunity $opportunity, array $data)
+    {
+        return $opportunity->update($data);
+    }
+
+    private function deleteOpportunity(Opportunity $opportunity)
+    {
+        return $opportunity->delete();
+    }
+
+    private function paginateOpportunities($query, $perPage = 15)
+    {
+        return $query->paginate($perPage)->withQueryString();
+    }
+
+    private function orderByDesc($query, $column)
+    {
+        return $query->orderByDesc($column);
+    }
+
+    private function wantsJson(Request $request)
+    {
+        return $request->wantsJson();
+    }
+
+    private function jsonResponse($data)
+    {
+        return response()->json($data);
+    }
+
+    private function renderInertia(string $component, array $props = [])
+    {
+        return Inertia::render($component, $props);
+    }
+
+    private function getModelWith($model, array $relations)
+    {
+        return $model::with($relations);
+    }
+
+    private function findModelById($model, $id)
+    {
+        return $model::findOrFail($id);
+    }
+
+    private function arrayMerge(array $array1, array $array2)
+    {
+        return array_merge($array1, $array2);
+    }
+
+    private function compact(array $variables)
+    {
+        return compact($variables);
+    }
+
+    private function validateRequest(Request $request, array $rules): array
+    {
+        return $request->validate($rules);
+    }
+
+    private function flashSession(string $key, $value)
+    {
+        session()->flash($key, $value);
+    }
+
+    private function redirectToRoute(string $name, $parameters = [])
+    {
+        return redirect()->route($name, $parameters);
+    }
+
+    private function getModelQuery($model)
+    {
+        return $model::query();
+    }
+}

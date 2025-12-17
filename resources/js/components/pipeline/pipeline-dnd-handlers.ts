@@ -1,4 +1,4 @@
-import axios from 'axios';
+import api from "@/lib/axios";
 
 type ToastOpts = { title: string; description?: string; variant?: 'default' | 'destructive' };
 
@@ -63,8 +63,8 @@ export const handleDragEnd = ({ event, columns, setColumns }: any) => {
     // POST update to server (optimistic, will rollback on failure)
     (async () => {
         try {
-            const { data, status } = await axios.post(
-                '/api/v1/pipelines/move',
+            const { data, status } = await api.put(
+                `/leads/${activeId}/move`,
                 { lead_id: activeId, to_column: destination.id },
                 { withCredentials: true }
             );

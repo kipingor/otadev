@@ -11,7 +11,7 @@ class StoreLeadRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return $this->user()->can('create', \App\Models\Lead::class);
+        return true;
     }
 
     /**
@@ -22,11 +22,8 @@ class StoreLeadRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
-            'type' => 'required|in:document,conversation',
-            'document_id' => 'nullable|exists:lead_documents,id',
-            'owner_id' => 'nullable|exists:users,id',
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['nullable', 'email'],
         ];
     }
 }

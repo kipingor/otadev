@@ -38,7 +38,7 @@ return new class extends Migration
             $table->date('endAt')->nullable();
             $table->integer('estimated_hours')->nullable();
             $table->integer('spent_hours')->default(0);
-            $table->string('group');
+            $table->string('group')->default('None');
             $table->json('metadata')->nullable();
             $table->timestamps();
             $table->softDeletes();

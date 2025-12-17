@@ -1,7 +1,7 @@
 // File: resources/js/hooks/useTasks.ts
 import { useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+import api from "@/lib/axios";
 import { echo } from "@/lib/echo";
 import { Task } from "@/types";
 
@@ -21,7 +21,7 @@ export function useTasks(projectId?: number | string) {
         queryFn: async () => {
             if (!projectIdNum) return [];
             try {
-                const response = await axios.get(`/api/v1/projects/${projectIdNum}/tasks`);
+                const response = await api.get(`/projects/${projectIdNum}/tasks`);
                 return response.data;
             } catch (err: any) {
                 // If project not found (404) return empty array so UI can render gracefully.
@@ -30,12 +30,15 @@ export function useTasks(projectId?: number | string) {
             }
         },
         enabled: !!projectIdNum,
+        // Don't aggressively retry queries on auth failure — handle reauth centrally
+        retry: false,
+        refetchOnWindowFocus: false,
     });
 
     /** ──────── Update status (Optimistic UI) ──────── **/
     const updateTaskStatus = useMutation({
         mutationFn: async ({ taskId, newStatus }: { taskId: number; newStatus: string }) => {
-            await axios.put(`/api/v1/tasks/${taskId}`, { status: newStatus });
+            await api.put(`/tasks/${taskId}`, { status: newStatus });
         },
         onMutate: async ({ taskId, newStatus }: { taskId: number; newStatus: string }) => {
             await queryClient.cancelQueries({ queryKey: ["tasks", projectIdNum] });

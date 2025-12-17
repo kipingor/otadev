@@ -33,9 +33,9 @@ export default function SortableLeadCard({
             {...listeners}
             className="rounded-xl border bg-card p-3 text-left shadow-sm"
         >
-            <p className="font-semibold">{lead.title ?? lead.name ?? "Untitled lead"}</p>
+            <p className="font-semibold text-xs">{lead.title ?? lead.name ?? "Untitled lead"}</p>
             {lead.client_name && (
-                <p className="text-sm text-muted-foreground">{lead.client_name}</p>
+                <p className="text-xs text-muted-foreground">{lead.client_name}</p>
             )}
         </div>
     );

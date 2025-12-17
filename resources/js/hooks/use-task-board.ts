@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+import api from "@/lib/axios";
 import { Task } from "@/types";
 
 export function useUpdateTask() {
@@ -7,7 +7,7 @@ export function useUpdateTask() {
 
     return useMutation({
         mutationFn: async (task: Partial<Task>) => {
-            const { data } = await axios.put(`/api/tasks/${task.id}`, task);
+            const { data } = await api.put(`/api/tasks/${task.id}`, task);
             return data;
         },
         onMutate: async (task) => {

@@ -16,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Form } from '@inertiajs/react';
 import { useRef } from 'react';
 
-export default function DeleteUser() {
+export default function DeleteUser(props: React.HTMLAttributes<HTMLDivElement>) {
     const passwordInput = useRef<HTMLInputElement>(null);
 
     return (

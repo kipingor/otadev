@@ -29,4 +29,34 @@ class PipelineController extends Controller
             'leadsByStage' => $leadsByStage,
         ]);
     }
+
+    public function show(Request $request, $id)
+    {
+        return Inertia::render('pipelines/show', ['id' => $id]);
+    }
+
+    public function create(Request $request)
+    {
+        return Inertia::render('pipelines/create');
+    }
+
+    public function edit(Request $request, $id)
+    {
+        return Inertia::render('pipelines/edit', ['id' => $id]);
+    }
+
+    public function settings(Request $request)
+    {
+        return Inertia::render('pipelines/settings');
+    }
+
+    public function reports(Request $request)
+    {
+        return Inertia::render('pipelines/reports');
+    }
+
+    public function dashboard(Request $request)
+    {
+        return Inertia::render('pipelines/dashboard');
+    }
 }

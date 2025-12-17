@@ -7,10 +7,18 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Task;
 use App\Models\Project;
+use App\Services\TaskService;
 use Illuminate\Http\JsonResponse;
 
 class TaskController extends Controller
 {
+    protected TaskService $service;
+
+    public function __construct(TaskService $service)
+    {
+        $this->service = $service;
+    }
+
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -22,8 +30,9 @@ class TaskController extends Controller
             'estimated_hours' => 'nullable|integer',
         ]);
 
+        $this->authorize('create', Task::class);
 
-        $task = Task::create($data);
+        $task = $this->service->create($data);
 
         return response()->json(['ok' => true, 'task' => $task]);
     }
@@ -33,7 +42,10 @@ class TaskController extends Controller
      */
     public function index(Project $project): JsonResponse
     {
+        $this->authorize('view', $project);
+
         $tasks = $project->tasks()->with('assignee:id,name')->get();
+
         return response()->json($tasks);
     }
 
@@ -48,11 +60,9 @@ class TaskController extends Controller
             'endAt' => 'nullable|date',
             'spent_hours' => 'nullable|integer',
         ]);
+        $this->authorize('update', $task);
 
-
-        $task->update($data);
-
-        event(new TaskUpdated($task->fresh()));
+        $task = $this->service->update($task, $data);
 
         return response()->json(['ok' => true, 'task' => $task]);
     }
@@ -60,8 +70,9 @@ class TaskController extends Controller
 
     public function destroy(Task $task): JsonResponse
     {
-        $task->delete();
+        $this->authorize('delete', $task);
 
+        $this->service->delete($task);
 
         return response()->json(['ok' => true]);
     }

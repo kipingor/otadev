@@ -123,4 +123,15 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Supported Currencies
+    |--------------------------------------------------------------------------
+    |
+    | This option defines the list of supported currencies for the application.
+    | You can modify this array to add or remove currencies as needed.
+    | */
+
+    'supported_currencies' => ['KES', 'USD', 'EUR', 'GBP'],
+
 ];

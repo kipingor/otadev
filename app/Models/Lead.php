@@ -121,6 +121,7 @@ class Lead extends Model
         return $this->hasMany(Proposal::class);
     }
 
+
     /**
      * Get the emails associated with this lead.
      *

@@ -12,10 +12,12 @@ class Email extends Model
 
     public const STATUSES = [
         'draft',
+        'queued',
         'sent',
+        'delivered',
+        'bounced',
         'opened',
         'clicked',
-        'bounced',
         'failed',
     ];
 

@@ -22,7 +22,7 @@ export default function LeadDocumentUploader({ onUploadComplete, onUploadStart, 
         }
 
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/v1/upload/lead-document');
+        xhr.open('POST', '/api/v1/upload');
         xhr.setRequestHeader('Accept', 'application/json');
 
         xhr.upload.onprogress = function (e) {

@@ -5,28 +5,31 @@
  *  - React Testing Library (renderHook)
  *  - Mock Service Worker (MSW) for API mocking
  */
-
-import React from 'react';
 import { render, act, waitFor } from '@testing-library/react';
 import { beforeAll, afterEach, afterAll, describe, it, expect } from 'vitest';
 import { setupServer } from 'msw/node';
 import * as msw from 'msw';
 import { vi } from 'vitest';
+import React from 'react';
 // use the http helper as 'rest' to create handlers (msw v2)
 const rest = (msw as any).http;
 
 // Mock the Echo client used by the hook so tests don't try to open websocket connections.
 vi.mock('@/lib/echo', () => {
+    const mockEcho = {
+        private: (_channel: string) => ({
+            listen: (_event: string, _cb: any) => undefined,
+            stopListening: (_event: string, _cb: any) => undefined,
+        }),
+    };
+
     return {
-        default: {
-            private: (_channel: string) => ({
-                listen: (_event: string, _cb: any) => undefined,
-                stopListening: (_event: string, _cb: any) => undefined,
-            }),
-        },
+        echo: mockEcho,
+        default: mockEcho,
     };
 });
 import { usePipeline } from '../use-pipeline';
+import api from '@/lib/axios';
 import { Lead, Stage } from '@/types';
 
 // ------------------------------
@@ -64,11 +67,23 @@ const server = setupServer(
         );
     }),
 
-    rest.post('/api/v1/pipelines/move', (_req, _res, _ctx) => {
+    rest.post('/api/v1/pipelines/move', (_req, res, ctx) => {
         // Return a deterministic successful response
-        return Response.json(
-            { updated_lead: { id: 1, name: 'John Doe', pipeline_stage_key: 'contacted' } },
-            { status: 200 }
+        return res(
+            ctx.status(200),
+            ctx.json({ updated_lead: { id: 1, name: 'John Doe', pipeline_stage_key: 'contacted' } })
+        );
+    }),
+
+    // handler for moving a lead (used by optimistic update test)
+    rest.put('/api/v1/leads/:id/move', async (req, res, ctx) => {
+        // In MSW/node the parsed body is available as `req.body`
+        const body = req.body as any;
+        const toStage = body?.to_stage_key ?? body?.toStageKey ?? body?.to_stage;
+        const id = Number(req.params.id ?? (body?.lead_id ?? 1));
+        return res(
+            ctx.status(200),
+            ctx.json({ updated_lead: { id, name: 'John Doe', pipeline_stage_key: toStage || 'contacted' } })
         );
     })
 );
@@ -136,18 +151,22 @@ describe('usePipeline hook', () => {
         expect(ref.current.itemsByStage.new).toHaveLength(2);
         expect(ref.current.itemsByStage.contacted).toHaveLength(0);
 
+        // Mock the API PUT for this test to return the updated lead
+        const putSpy = vi.spyOn(api, 'put').mockResolvedValue({ data: { updated_lead: { id: 1, name: 'John Doe', pipeline_stage_key: 'contacted' } } });
+
         await act(async () => {
             await ref.current.moveLead({ leadId: 1, toStageKey: 'contacted' });
         });
+
+        putSpy.mockRestore();
 
         expect(ref.current.itemsByStage.new).toHaveLength(1);
         expect(ref.current.itemsByStage.contacted[0].pipeline_stage_key).toBe('contacted');
     });
 
     it('rolls back if API move fails', async () => {
-        server.use(
-            rest.post('/api/v1/pipelines/move', (_req, res, ctx) => res(ctx.status(500), ctx.text('Move failed')))
-        );
+        // Make the API PUT fail to simulate server error
+        const putSpy = vi.spyOn(api, 'put').mockRejectedValue(new Error('Move failed'));
 
         const ref: any = React.createRef();
         const Wrapper = React.forwardRef(function Wrapper(_props, ref) {
@@ -165,6 +184,8 @@ describe('usePipeline hook', () => {
                 // Expected failure
             }
         });
+
+        putSpy.mockRestore();
 
         // After rollback, lead should remain in "new"
         expect(ref.current.itemsByStage.new.find((l) => l.id === 1)).toBeTruthy();

@@ -12,7 +12,7 @@ use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
 
-class LeadMoved implements ShouldBroadcastNow
+class LeadMoved implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, ShouldBroadcast;
 
@@ -44,7 +44,7 @@ class LeadMoved implements ShouldBroadcastNow
     public function broadcastAs(): string
     {
         // Friendly event name for Echo
-        return 'lead.moved';
+        return 'PipelineMoved';
     }
 
     public function broadcastWith(): array

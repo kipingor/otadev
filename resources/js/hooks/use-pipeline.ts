@@ -1,7 +1,7 @@
 // File: resources/js/hooks/usePipeline.ts
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
+import api from "@/lib/axios";
 import { echo } from "@/lib/echo";
 import { Lead } from "@/types";
 
@@ -49,7 +49,7 @@ export function usePipeline(initialData?: {
     setLoading(true);
     setError(null);
     try {
-      const { data } = await axios.get("/api/v1/pipelines");
+      const { data } = await api.get("/pipelines");
       setStages(data.stages);
       setItemsByStage(data.leadsByStage || {});
       stableRef.current = {
@@ -137,7 +137,7 @@ export function usePipeline(initialData?: {
       setItemsByStage(optimisticItems);
 
       try {
-        const { data } = await axios.post("/api/v1/pipelines/move", {
+        const { data } = await api.put(`/leads/${leadId}/move`, {
           lead_id: leadId,
           to_stage_key: toStageKey,
         });
@@ -173,7 +173,7 @@ export function useMoveLead() {
 
   return useMutation({
     mutationFn: async ({ leadId, stageId }: { leadId: number; stageId: number }) => {
-      const { data } = await axios.put(`/api/leads/${leadId}/move`, { stage_id: stageId });
+      const { data } = await api.put(`/leads/${leadId}/move`, { stage_id: stageId });
       return data;
     },
     onMutate: async ({ leadId, stageId }: { leadId: number; stageId: number }) => {

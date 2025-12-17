@@ -2,89 +2,61 @@
 
 namespace App\Http\Controllers\Web;
 
-use App\Events\LeadUpdated;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Lead\StoreLeadRequest;
 use App\Models\Lead;
-use App\Services\AI\LeadAnalysisService;
+use App\Services\LeadService;
+use App\Http\Requests\Lead\StoreLeadRequest;
+use App\Http\Requests\Lead\UpdateLeadRequest;
 use Inertia\Inertia;
-use Illuminate\Http\Request;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
-use Illuminate\Support\Facades\Gate;
 
 class LeadController extends Controller
 {
-    public function index(Request $request)
+    public function __construct(
+        protected LeadService $leadService
+    ) {}
+
+    public function index()
     {
-        Gate::authorize('viewAny', Lead::class);
-
-        $leads = Lead::with('questions', 'opportunity', 'owner')
-            ->orderByDesc('created_at')
-            ->paginate(15)
-            ->withQueryString();
-
-        return Inertia::render('leads/index', compact('leads'));
+        return Inertia::render('Leads/Index', [
+            'leads' => Lead::latest()->paginate(15),
+        ]);
     }
 
-    public function create()
+    public function store(StoreLeadRequest $request)
     {
-        Gate::authorize('create', Lead::class);
+        $lead = $this->leadService->create($request->validated());
 
-        return Inertia::render('leads/create');
-    }
-
-    public function store(StoreLeadRequest $request, LeadAnalysisService $analysisService)
-    {
-        Gate::authorize('create', Lead::class);
-
-        $data = $request->validated();
-        $data['created_by'] = $request->user()->id;
-
-        $lead = Lead::create($data);
-
-        if ($lead->type === 'document' && $request->has('document_id')) {
-            if (method_exists($analysisService, 'analyzeUploadedDocument')) {
-                // Use a dynamic call to avoid static analyzer errors when the method
-                // is not declared on the concrete class/interface available to the analyzer.
-                call_user_func([$analysisService, 'analyzeUploadedDocument'], $lead, $request->input('document_id'));
-            }
-        }
-
-        return redirect()->route('leads.show', $lead->id)->with('success', 'Lead created.');
+        return redirect()
+            ->route('leads.show', $lead)
+            ->with('success', 'Lead created successfully.');
     }
 
     public function show(Lead $lead)
     {
-        Gate::authorize('view', $lead);
+        $this->authorize('view', $lead);
 
-        $lead->load('questions', 'leadDocuments', 'opportunity');
-
-        return Inertia::render('leads/show', compact('lead'));
+        return Inertia::render('Leads/Show', [
+            'lead' => $lead,
+        ]);
     }
 
-    public function edit(Lead $lead)
+    public function update(UpdateLeadRequest $request, Lead $lead)
     {
-        Gate::authorize('update', $lead);
+        $this->authorize('update', $lead);
 
-        return Inertia::render('leads/edit', compact('lead'));
+        $this->leadService->update($lead, $request->validated());
+
+        return back()->with('success', 'Lead updated.');
     }
 
-    public function update(Request $request, Lead $lead)
-    {
-        Gate::authorize('update', $lead);
-
-        $lead->update($request->all());
-
-        LeadUpdated::dispatch($lead->fresh());
-
-        return redirect()->route('leads.show', $lead->id)->with('success', 'Lead updated.');
-    }
     public function destroy(Lead $lead)
     {
-        Gate::authorize('delete', $lead);
+        $this->authorize('delete', $lead);
 
         $lead->delete();
 
-        return redirect()->route('leads.index')->with('success', 'Lead deleted.');
+        return redirect()
+            ->route('leads.index')
+            ->with('success', 'Lead deleted.');
     }
 }

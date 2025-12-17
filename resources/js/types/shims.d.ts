@@ -8,6 +8,11 @@ declare module '@testing-library/react';
 declare module 'msw';
 declare module 'msw/node';
 declare module 'axios';
+declare module '@/lib/axios' {
+    import axios from 'axios';
+    const api: axios.AxiosInstance;
+    export default api;
+}
 declare module '@/lib/echo' {
     export const echo: any;
 }

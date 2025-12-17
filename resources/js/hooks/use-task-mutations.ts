@@ -1,6 +1,6 @@
 import type { Task } from '@/types/task';
 import { useState } from 'react';
-import axios from 'axios';
+import api from "@/lib/axios";
 
 /**
  * useTaskMutations
@@ -46,7 +46,7 @@ export default function useTaskMutations(
             }
 
             // Use axios for consistent request behavior and include credentials
-            const res = await axios.post(`/api/v1/tasks`, payload, { withCredentials: true });
+            const res = await api.post(`/tasks`, payload, { withCredentials: true });
 
             const body = res.data;
             const created: Task = (body && (body as any).task) ? (body as any).task : (body as any);

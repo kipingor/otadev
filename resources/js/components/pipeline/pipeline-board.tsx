@@ -112,7 +112,7 @@ type PipelineColumnProps = {
 
 function PipelineColumn({ stage, leads }: PipelineColumnProps) {
     return (
-        <div className="flex w-72 shrink-0 flex-col rounded-xl border bg-background/60 p-4 shadow-sm">
+        <div className="flex w-48 shrink-0 flex-col rounded-xl border bg-background/60 p-4 shadow-sm">
             <div className="flex items-center justify-between text-sm font-medium">
                 <span>{stage.name}</span>
                 <span className="text-muted-foreground">{leads.length}</span>

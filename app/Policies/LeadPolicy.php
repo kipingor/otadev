@@ -22,11 +22,7 @@ class LeadPolicy
      */
     public function view(User $user, Lead $lead): bool
     {
-        if ($user->hasRole('admin')) {
-            return true;
-        }
-
-        return $lead->created_by == $user->id || $lead->owner_id == $user->id;
+        return $user->id === $lead->owner_id;
     }
 
     /**
@@ -42,7 +38,7 @@ class LeadPolicy
      */
     public function update(User $user, Lead $lead): bool
     {
-        return $user->hasRole('admin') || $lead->created_by === $user->id || $lead->owner_id === $user->id;
+        return $user->id === $lead->owner_id;
     }
 
     /**
@@ -50,6 +46,6 @@ class LeadPolicy
      */
     public function delete(User $user, Lead $lead): bool
     {
-        return $user->hasRole('admin') || $lead->created_by == $user->id;
+        return $user->id === $lead->owner_id;
     }
 }

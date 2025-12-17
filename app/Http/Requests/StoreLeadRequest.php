@@ -22,11 +22,8 @@ class StoreLeadRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'type' => 'required|in:document,conversation',
-            'owner_id' => 'nullable|integer|exists:users,id',
-            'pipeline_stage_id' => 'nullable|integer|exists:pipeline_stages,id',
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['nullable', 'email'],
         ];
     }
 }

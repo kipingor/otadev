@@ -56,6 +56,6 @@ export function useDashboardMetrics(refetchInterval: number = 30000) {
         },
         refetchInterval,
         staleTime: 10000,
-        cacheTime: 5 * 60 * 1000,
+        gcTime: 5 * 60 * 1000,
     });
 }

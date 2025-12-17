@@ -74,24 +74,44 @@ class DashboardMetricsService
     {
         $startDate = Carbon::now()->subMonths($months);
         
-        $revenue = Opportunity::select(
-            DB::raw('YEAR(updated_at) as year'),
-            DB::raw('MONTH(updated_at) as month'),
-            DB::raw('SUM(estimated_value) as revenue')
-        )
-        ->where('updated_at', '>=', $startDate)
-        ->where('stage', 'won')
-        ->groupBy('year', 'month')
-        ->orderBy('year')
-        ->orderBy('month')
-        ->get();
+        // Use driver-specific date extraction to support sqlite in tests and
+        // MySQL/Postgres in production. SQLite uses strftime, other drivers
+        // can use YEAR()/MONTH() functions.
+        $driver = DB::getDriverName();
+
+        if ($driver === 'sqlite') {
+            $revenue = Opportunity::select(
+                DB::raw("strftime('%Y', updated_at) as year"),
+                DB::raw("strftime('%m', updated_at) as month"),
+                DB::raw('SUM(estimated_value) as revenue')
+            )
+            ->where('updated_at', '>=', $startDate)
+            ->where('stage', 'won')
+            ->groupBy('year', 'month')
+            ->orderBy('year')
+            ->orderBy('month')
+            ->get();
+        } else {
+            $revenue = Opportunity::select(
+                DB::raw('YEAR(updated_at) as year'),
+                DB::raw('MONTH(updated_at) as month'),
+                DB::raw('SUM(estimated_value) as revenue')
+            )
+            ->where('updated_at', '>=', $startDate)
+            ->where('stage', 'won')
+            ->groupBy('year', 'month')
+            ->orderBy('year')
+            ->orderBy('month')
+            ->get();
+        }
 
         // Fill in missing months with zero revenue
         $data = [];
         for ($i = $months; $i >= 0; $i--) {
             $date = Carbon::now()->subMonths($i);
-            $year = $date->year;
-            $month = $date->month;
+            $year = (string) $date->year;
+            // sqlite's strftime('%m') returns zero-padded months
+            $month = $driver === 'sqlite' ? str_pad($date->month, 2, '0', STR_PAD_LEFT) : $date->month;
             
             $monthRevenue = $revenue->where('year', $year)
                 ->where('month', $month)
@@ -167,5 +187,54 @@ class DashboardMetricsService
     {
         // Count documents that have been processed (have AI summary)
         return LeadDocument::whereNotNull('ai_summary')->count();
+    }
+
+    /**
+     * Return a compact example payload for frontend/dev tests.
+     * This does not affect production metrics but provides deterministic
+     * example data that can be used in client-side tests or storybook.
+     */
+    public function getExampleMetrics(): array
+    {
+        return [
+            'overview' => [
+                'leads' => 42,
+                'opportunities' => 12,
+                'open_pipeline' => 9,
+                'documents' => 7,
+                'active_projects' => 3,
+                'completed_tasks' => 27,
+            ],
+            'leads_over_time' => [
+                ['date' => now()->subDays(6)->format('Y-m-d'), 'leads' => 0, 'formatted_date' => now()->subDays(6)->format('M j')],
+                ['date' => now()->subDays(5)->format('Y-m-d'), 'leads' => 1, 'formatted_date' => now()->subDays(5)->format('M j')],
+                ['date' => now()->subDays(4)->format('Y-m-d'), 'leads' => 2, 'formatted_date' => now()->subDays(4)->format('M j')],
+                ['date' => now()->subDays(3)->format('Y-m-d'), 'leads' => 3, 'formatted_date' => now()->subDays(3)->format('M j')],
+                ['date' => now()->subDays(2)->format('Y-m-d'), 'leads' => 5, 'formatted_date' => now()->subDays(2)->format('M j')],
+                ['date' => now()->subDays(1)->format('Y-m-d'), 'leads' => 8, 'formatted_date' => now()->subDays(1)->format('M j')],
+                ['date' => now()->format('Y-m-d'),           'leads' => 23, 'formatted_date' => now()->format('M j')],
+            ],
+            'opportunity_pipeline' => [
+                ['stage' => 'Prospect', 'count' => 4, 'value' => 12000],
+                ['stage' => 'Qualified', 'count' => 3, 'value' => 8000],
+                ['stage' => 'Proposal', 'count' => 2, 'value' => 15000],
+            ],
+            'revenue_over_time' => [
+                ['month' => now()->subMonths(2)->format('Y-m'), 'revenue' => 12000.0, 'formatted_month' => now()->subMonths(2)->format('M Y')],
+                ['month' => now()->subMonths(1)->format('Y-m'), 'revenue' => 18000.0, 'formatted_month' => now()->subMonths(1)->format('M Y')],
+                ['month' => now()->format('Y-m'),             'revenue' => 23000.0, 'formatted_month' => now()->format('M Y')],
+            ],
+            'task_completion' => [
+                'total' => 40,
+                'completed' => 27,
+                'in_progress' => 8,
+                'pending' => 5,
+                'completion_rate' => 67.5,
+            ],
+            'recent_activity' => [
+                ['type' => 'lead', 'title' => 'New lead: Acme Co', 'description' => 'acme@example.com', 'created_at' => now()->subHours(2), 'user' => 'Alice'],
+                ['type' => 'opportunity', 'title' => 'Opportunity updated: Project X', 'description' => 'Stage: Proposal', 'created_at' => now()->subDay(), 'user' => 'Bob'],
+            ],
+        ];
     }
 }

@@ -81,6 +81,68 @@ class LeadAnalysisService
         return $json;
     }
 
+    public function reanalyzeLead(Lead $lead): array
+    {
+        // For each document, ensure it has extracted_text and ai_summary
+        foreach ($lead->leadDocuments as $doc) {
+            if (empty($doc->extracted_text) || empty($doc->extracted_text['text'])) {
+                $disk = storage_path('app/' . $doc->storage_path);
+                $text = $this->parser->extractText($disk, $doc->mime_type);
+                if (!empty($text)) {
+                    $doc->extracted_text = ['text' => $text];
+                    $doc->save();
+                }
+            }
+
+            if (empty($doc->ai_summary)) {
+                $prompt = "Summarize this document into 3–6 bullet points and list action items:\n\n" .
+                          mb_substr($doc->extracted_text['text'] ?? '', 0, 30000);
+
+                $summary = $this->client->generate($prompt, [
+                    'max_tokens' => 500,
+                    'temperature' => 0.2,
+                ]);
+
+                $doc->ai_summary = [
+                    'summary' => is_string($summary) ? trim($summary) : $summary,
+                    'generated_at' => now()->toDateTimeString(),
+                ];
+                $doc->status = LeadDocument::STATUS_SUCCEEDED;
+                $doc->save();
+            }
+        }
+
+        // Additional: generate lead-level suggestions (questions, next steps)
+        $leadPrompt = "Given the following documents and lead description, suggest 5 follow-up questions and next steps.\n\nLead:\n".
+                      ($lead->description ?? '') . "\n\nDocuments:\n";
+        foreach ($lead->leadDocuments as $d) {
+            $leadPrompt .= ($d->ai_summary['summary'] ?? '') . "\n";
+        }
+
+        $leadSuggestions = $this->client->generate($leadPrompt, ['max_tokens' => 400, 'temperature' => 0.2]);
+
+        $lead->metadata = array_merge($lead->metadata ?? [], [
+            'ai_suggestions' => is_string($leadSuggestions) ? trim($leadSuggestions) : $leadSuggestions,
+        ]);
+        $lead->ai_reviewed = true;
+        $lead->save();
+    }
+
+    /**
+     * Analyze one uploaded document (helper used in store)
+     */
+    public function analyzeUploadedDocument(Lead $lead, int $documentId): void
+    {
+        $document = LeadDocument::find($documentId);
+        if (!$document) {
+            return;
+        }
+
+        // If ProcessLeadDocument job exists, you might prefer to dispatch it instead.
+        // Here, for convenience, call reanalyze for the lead which will inspect docs.
+        $this->reanalyzeLead($lead);
+    }
+
     private function buildPromptForAnalysis(string $text, string $context = ''): string
     {
         $instructions = "You are an expert requirements analyst. Given the following document or description, extract a concise summary, a structured list of requirements, and produce up to 8 clarifying questions to ask the client. Respond in JSON with keys: summary, requirements (array of {id, title, details}), questions (array of strings).";

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { router } from '@inertiajs/react';
 import {
     DndContext,
     closestCenter,
@@ -68,8 +68,9 @@ const PipelineView = ({ leads }) => {
         });
 
         try {
-            await axios.put(`/leads/${movedLead.id}`, { status: overStage });
+            await router.put(`/leads/${movedLead.id}`, { status: overStage });
         } catch (err) {
+            // router.put returns a visit; any errors are surfaced via Inertia flash/errors
             console.error('Failed to update lead status', err);
         }
     };

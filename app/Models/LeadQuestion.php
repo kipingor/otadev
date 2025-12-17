@@ -12,6 +12,11 @@ class LeadQuestion extends Model
     protected $fillable = [
         'lead_id', 'question', 'answer', 'is_ai_generated', 'asked_by', 'answered'
     ];
+
+    protected $casts = [
+        'is_ai_generated' => 'boolean',
+        'answered' => 'boolean',
+    ];
     
     
     public function lead()
