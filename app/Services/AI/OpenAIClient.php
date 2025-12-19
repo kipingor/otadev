@@ -5,7 +5,7 @@ namespace App\Services\AI;
 use Illuminate\Support\Facades\Http;
 use Exception;
 
-class OpenAIClient
+class OpenAIClient implements OpenAIClientContract
 {
     private string $apiKey;
     private string $baseUrl;

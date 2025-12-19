@@ -53,13 +53,10 @@ class DatabaseSeeder extends Seeder
         // 3. Create Pipeline Stages
         // ---------------------------
         $defaultStages = [
-            ['key' => 'new', 'name' => 'New', 'order' => 0],
-            ['key' => 'contacted', 'name' => 'Contacted', 'order' => 1],
-            ['key' => 'qualified', 'name' => 'Qualified', 'order' => 2],
-            ['key' => 'opportunity', 'name' => 'Opportunity', 'order' => 3],
-            ['key' => 'proposal_sent', 'name' => 'Proposal Sent', 'order' => 4],
-            ['key' => 'won', 'name' => 'Won', 'order' => 5],
-            ['key' => 'lost', 'name' => 'Lost', 'order' => 6],
+            ['key' => 'intake', 'name' => 'Intake', 'order' => 0],
+            ['key' => 'discovery', 'name' => 'Discovery', 'order' => 1],
+            ['key' => 'proposal', 'name' => 'Proposal', 'order' => 2],
+            ['key' => 'negotiation', 'name' => 'Negotiation', 'order' => 3],
         ];
         $pipelineStages = collect($defaultStages)->map(function ($stage) {
             return PipelineStage::firstOrCreate(
@@ -78,7 +75,7 @@ class DatabaseSeeder extends Seeder
         $end = now();
 
         // random date helper
-        $randomDate = fn() => Carbon::parse(fake()->dateTimeBetween($start, $end));
+        $randomDate = fn () => Carbon::parse(fake()->dateTimeBetween($start, $end));
 
         // ---------------------------
         // 4. Leads + Opportunities
@@ -176,7 +173,7 @@ class DatabaseSeeder extends Seeder
             // 7. Expenses
             // ---------------------------
             // The error occurs because the 'lines' attribute in ExpenseFactory can be an array,
-            // but the expenses table expects JSON (not PHP array). 
+            // but the expenses table expects JSON (not PHP array).
             // Solution: Convert array values for 'lines' to JSON before insert.
             Expense::factory(rand(2, 5))->make([
                 'project_id' => $project->id,
@@ -196,7 +193,7 @@ class DatabaseSeeder extends Seeder
         // -- To fix: convert array fields to JSON before save --
         $suppliers = Supplier::factory(8)->make([
             'created_at' => $randomDate(),
-        ])->each(function($supplier) {
+        ])->each(function ($supplier) {
             // The following fields must be JSON strings for insert:
             foreach (['contact_info', 'products', 'metadata'] as $jsonField) {
                 if (isset($supplier->$jsonField) && is_array($supplier->$jsonField)) {
@@ -208,7 +205,7 @@ class DatabaseSeeder extends Seeder
 
         $vendors = Vendor::factory(5)->make([
             'created_at' => $randomDate(),
-        ])->each(function($vendor) {
+        ])->each(function ($vendor) {
             // The following fields must be JSON strings for insert:
             foreach (['contact_info', 'metadata'] as $jsonField) {
                 if (isset($vendor->$jsonField) && is_array($vendor->$jsonField)) {

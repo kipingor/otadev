@@ -4,7 +4,7 @@ namespace Tests\Unit\Services;
 
 use Tests\TestCase;
 use App\Models\Lead;
-use App\Services\AiOrchestrationService;
+use App\Services\AI\AiOrchestrationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class AiOrchestrationServiceTest extends TestCase
@@ -14,9 +14,10 @@ class AiOrchestrationServiceTest extends TestCase
     public function test_it_generates_follow_up_questions(): void
     {
         $lead = Lead::factory()->create();
+        $user = $lead->owner;
 
         $service = app(AiOrchestrationService::class);
-        $questions = $service->generateFollowUpQuestions($lead);
+        $questions = $service->generateFollowUpQuestions($user, $lead->id);
 
         $this->assertIsArray($questions);
         $this->assertNotEmpty($questions);

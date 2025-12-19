@@ -5,8 +5,8 @@ namespace Tests\Feature\Services;
 use Tests\TestCase;
 use App\Models\Lead;
 use App\Models\PipelineStage as PipelineStageModel;
-use App\Services\PipelineService;
-use App\Enums\PipelineStage;
+use App\Services\AI\PipelineService;
+use App\Enums\PipelineStage as PipelineStageEnum;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class PipelineServiceTest extends TestCase
@@ -16,11 +16,11 @@ class PipelineServiceTest extends TestCase
     public function test_it_moves_a_lead_to_a_new_pipeline_stage(): void
     {
         $intake = PipelineStageModel::factory()->create([
-            'key' => PipelineStage::INTAKE->value,
+            'key' => PipelineStageEnum::INTAKE->value,
         ]);
 
         $discovery = PipelineStageModel::factory()->create([
-            'key' => PipelineStage::DISCOVERY->value,
+            'key' => PipelineStageEnum::DISCOVERY->value,
         ]);
 
         $lead = Lead::factory()->create([
@@ -28,7 +28,7 @@ class PipelineServiceTest extends TestCase
         ]);
 
         $service = app(PipelineService::class);
-        $service->move($lead, PipelineStage::DISCOVERY);
+        $service->move($lead, PipelineStageEnum::DISCOVERY);
 
         $this->assertEquals(
             $discovery->id,

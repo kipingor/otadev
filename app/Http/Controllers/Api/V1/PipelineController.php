@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Pipeline\MovePipelineRequest;
-use App\Services\PipelineService;
+use App\Services\AI\PipelineService;
 use App\Models\Lead;
 use Illuminate\Http\JsonResponse;
 
@@ -22,7 +22,7 @@ class PipelineController extends Controller
 
         $this->pipelineService->move(
             $lead,
-            $request->stage()
+            $request->getPipelineStage()
         );
 
         return response()->json([

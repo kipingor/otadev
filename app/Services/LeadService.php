@@ -4,11 +4,23 @@ namespace App\Services;
 
 use App\Models\Lead;
 use App\Enums\LeadStatus;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class LeadService
 {
+    public function findForUser(object $user, int $leadId): Lead
+    {
+        $lead = Lead::query()->findOrFail($leadId);
+            
+        if ($user->cannot('view', $lead)) {
+            throw new AuthorizationException('Unauthorized to access this lead.');
+        }
+
+        return $lead;
+    }
+
     public function create(array $data): Lead
     {
         return Lead::create($data);

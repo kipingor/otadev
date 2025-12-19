@@ -27,7 +27,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->bind(
             \App\Services\AI\OpenAIClient::class,
-            \App\Services\AI\OpenAIClientGuzzle::class
+            \App\Services\AI\OpenAIClientGuzzle::class,
+            \App\Services\AI\OpenAIClientContract::class,
         );        
     }
 
