@@ -4,25 +4,50 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Models\Lead;
-use App\Services\LeadService;
+use App\Models\PipelineStage;
+use App\Models\User;
+use App\Services\Lead\LeadService;
+use App\Services\Lead\LeadStatusService;
 use App\Http\Requests\Lead\StoreLeadRequest;
 use App\Http\Requests\Lead\UpdateLeadRequest;
 use Inertia\Inertia;
+use Inertia\Response;
+use Illuminate\Http\RedirectResponse;
 
 class LeadController extends Controller
 {
     public function __construct(
-        protected LeadService $leadService
+        protected LeadService $leadService,
+        protected LeadStatusService $leadStatusService
     ) {}
 
     public function index()
     {
+        $this->authorize('viewAny', Lead::class);
+
+        $leads = $this->leadService->list(
+            request()->only(['owner_id', 'pipeline_stage_id', 'status', 'search']),
+            perPage: request()->integer('per_page', 15)
+        );
+        
         return Inertia::render('Leads/Index', [
-            'leads' => Lead::latest()->paginate(15),
+            'leads' => $leads,
+            'filters' => request()->only(['owner_id', 'pipeline_stage_id', 'status', 'search', 'per_page']),
         ]);
     }
 
-    public function store(StoreLeadRequest $request)
+    public function create(): Response
+    {
+        $this->authorize('create', Lead::class);
+
+        return Inertia::render('Leads/Create', [            
+            'pipelineStages' => PipelineStage::all(),
+            'users' => User::select('id', 'name', 'email')->get(),
+        ]);
+    }
+
+
+    public function store(StoreLeadRequest $request): RedirectResponse
     {
         $lead = $this->leadService->create($request->validated());
 
@@ -35,15 +60,37 @@ class LeadController extends Controller
     {
         $this->authorize('view', $lead);
 
+        $lead->load([
+            'owner',
+            'user',
+            'pipelineStage',
+            'questions',
+            'leadDocuments',
+            'opportunity',
+            'proposals',
+            'activities' => fn($q) => $q->latest()->limit(10),
+        ]);
+
         return Inertia::render('Leads/Show', [
             'lead' => $lead,
+            'availableTransitions' => $this->leadStatusService->getAvailableTransitions($lead),
+            'statusHistory' => $this->leadStatusService->getStatusHistory($lead),
+        ]);
+    }
+
+    public function edit(Lead $lead): Response
+    {
+        $this->authorize('update', $lead);
+
+        return Inertia::render('Leads/Edit', [
+            'lead' => $lead->load(['owner', 'pipelineStage']),
+            'pipelineStages' => PipelineStage::all(),
+            'users' => User::select('id', 'name', 'email')->get(),
         ]);
     }
 
     public function update(UpdateLeadRequest $request, Lead $lead)
     {
-        $this->authorize('update', $lead);
-
         $this->leadService->update($lead, $request->validated());
 
         return back()->with('success', 'Lead updated.');
@@ -53,7 +100,7 @@ class LeadController extends Controller
     {
         $this->authorize('delete', $lead);
 
-        $lead->delete();
+        $this->leadService->delete($lead);
 
         return redirect()
             ->route('leads.index')

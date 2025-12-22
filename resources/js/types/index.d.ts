@@ -137,3 +137,35 @@ export interface NavItem {
     href?: string;
     icon?: string;
 }
+
+export interface PaginatedData<T> {
+    data: T[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    [key: string]: any;
+}
+
+export interface NavGroup {
+    title: string;
+    items: NavItem[];
+}
+
+export interface Task {
+    id: ID;
+    title: string;
+    status?: string;
+    [key: string]: any;
+}
+
+export interface LeadFormData {
+    name: string;
+    company?: string;
+    email?: string;
+    phone?: string;
+    status?: string;
+    pipeline_stage_key?: string;
+    amount?: number;
+    [key: string]: any;
+}

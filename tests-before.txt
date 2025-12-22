@@ -1,0 +1,104 @@
+
+   PASS  Tests\Unit\ExampleTest
+  ✓ that true is true                                                    0.16s  
+
+   PASS  Tests\Unit\Policies\LeadPolicyTest
+  ✓ owner can view lead                                                  1.93s  
+  ✓ non owner cannot view lead                                           0.02s  
+  ✓ owner can update lead                                                0.02s  
+  ✓ non owner cannot update lead                                         0.02s  
+  ✓ owner can delete lead                                                0.02s  
+  ✓ non owner cannot delete lead                                         0.02s  
+
+   PASS  Tests\Unit\ProcessLeadDocumentTest
+  ✓ job generates summary and broadcasts                                 0.62s  
+
+   PASS  Tests\Feature\Auth\AuthenticationTest
+  ✓ login screen can be rendered                                         0.71s  
+  ✓ users can authenticate using the login screen                        0.24s  
+  ✓ users with two factor enabled are redirected to two factor challeng… 0.03s  
+  ✓ users can not authenticate with invalid password                     0.05s  
+  ✓ users can logout                                                     0.03s  
+  ✓ users are rate limited                                               0.09s  
+
+   PASS  Tests\Feature\Auth\EmailVerificationTest
+  ✓ email verification screen can be rendered                            0.02s  
+  ✓ email can be verified                                                0.06s  
+  ✓ email is not verified with invalid hash                              0.06s  
+  ✓ email is not verified with invalid user id                           0.02s  
+  ✓ verified user is redirected to dashboard from verification prompt    0.01s  
+  ✓ already verified user visiting verification link is redirected with… 0.04s  
+
+   PASS  Tests\Feature\Auth\PasswordConfirmationTest
+  ✓ confirm password screen can be rendered                              0.07s  
+  ✓ password confirmation requires authentication                        0.02s  
+
+   PASS  Tests\Feature\Auth\PasswordResetTest
+  ✓ reset password link screen can be rendered                           0.02s  
+  ✓ reset password link can be requested                                 0.39s  
+  ✓ reset password screen can be rendered                                0.22s  
+  ✓ password can be reset with valid token                               0.33s  
+  ✓ password cannot be reset with invalid token                          0.25s  
+
+   PASS  Tests\Feature\Auth\RegistrationTest
+  ✓ registration screen can be rendered                                  0.02s  
+  ✓ new users can register                                               0.05s  
+
+   PASS  Tests\Feature\Auth\SanctumFlowTest
+  ✓ sanctum csrf cookie route sets xsrf token cookie                     0.04s  
+  ✓ spa flow csrf and authenticated api access                           0.05s  
+
+   PASS  Tests\Feature\Auth\TwoFactorChallengeTest
+  ✓ two factor challenge redirects to login when not authenticated       0.03s  
+  ✓ two factor challenge can be rendered                                 0.02s  
+
+   PASS  Tests\Feature\Auth\VerificationNotificationTest
+  ✓ sends verification notification                                      0.23s  
+  ✓ does not send verification notification if email is verified         0.38s  
+
+   PASS  Tests\Feature\DashboardTest
+  ✓ guests are redirected to the login page                              0.02s  
+  ✓ authenticated users can visit the dashboard                          0.03s  
+
+   PASS  Tests\Feature\ExampleTest
+  ✓ returns successful response                                          0.13s  
+
+   PASS  Tests\Feature\PipelineAuthorizationTest
+  ✓ user cannot move pipeline for unowned lead                           1.91s  
+
+   PASS  Tests\Unit\Services\AiOrchestrationServiceTest
+  ✓ it generates follow up questions                                     0.05s  
+  ✓ it enriches lead context                                             0.02s  
+
+   PASS  Tests\Feature\Services\LeadServiceTest
+  ✓ it creates a lead with default status                                0.13s  
+  ✓ it updates a lead                                                    0.03s  
+  ✓ it transitions lead status                                           0.12s  
+
+   PASS  Tests\Feature\Services\PipelineServiceTest
+  ✓ it moves a lead to a new pipeline stage                              0.06s  
+
+   PASS  Tests\Feature\Services\ProposalGenerationServiceTest
+  ✓ it generates a proposal for a lead                                   0.20s  
+
+   PASS  Tests\Feature\Settings\PasswordUpdateTest
+  ✓ password update page is displayed                                    0.02s  
+  ✓ password can be updated                                              0.02s  
+  ✓ correct password must be provided to update password                 0.03s  
+
+   PASS  Tests\Feature\Settings\ProfileUpdateTest
+  ✓ profile page is displayed                                            0.02s  
+  ✓ profile information can be updated                                   0.03s  
+  ✓ email verification status is unchanged when the email address is un… 0.02s  
+  ✓ user can delete their account                                        0.04s  
+  ✓ correct password must be provided to delete account                  0.02s  
+
+   PASS  Tests\Feature\Settings\TwoFactorAuthenticationTest
+  ✓ two factor settings page can be rendered                             0.05s  
+  ✓ two factor settings page requires password confirmation when enable… 0.01s  
+  ✓ two factor settings page does not requires password confirmation wh… 0.02s  
+  ✓ two factor settings page returns forbidden response when two factor… 0.02s  
+
+  Tests:    58 passed (167 assertions)
+  Duration: 11.23s
+

@@ -41,7 +41,7 @@
 
         @viteReactRefresh
         @if (!app()->environment('testing'))
-            @vite(['resources/js/app.tsx', "resources/js/pages/{$page['component']}.tsx"])
+            @vite(['resources/js/app.tsx'])
         @endif
         @inertiaHead
     </head>

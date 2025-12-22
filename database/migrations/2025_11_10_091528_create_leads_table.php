@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use App\Enums\LeadStatus;
 
 return new class extends Migration
 {
@@ -26,9 +27,12 @@ return new class extends Migration
             $table->string('title')->nullable();
             $table->text('description')->nullable(); // user-provided description (conversational)
             $table->enum('type', ['document', 'conversation'])->default('conversation');
-            $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('status', 50)
+                ->default(LeadStatus::NEW->value);
+            $table->foreignId('created_by')->constrained('users');
             $table->foreignId('owner_id')->nullable()->constrained('users')->nullOnDelete(); // assigned owner
             $table->foreignId('pipeline_stage_id')->nullable()->constrained('pipeline_stages')->nullOnDelete();
+            $table->unsignedInteger('order')->default(0);
             $table->json('metadata')->nullable(); // extracted requirements, short summary from AI
             $table->boolean('ai_reviewed')->default(false); // whether AI has extracted requirements
             $table->timestamp('contacted_at')->nullable();
@@ -41,9 +45,17 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index(['type']);
+            $table->index(['status']);
             $table->index(['created_by']);
             $table->index(['owner_id']);
             $table->index(['pipeline_stage_id']);
+            $table->index(['owner_id', 'status']);
+            $table->index(['pipeline_stage_id', 'status']);
+            $table->index(['pipeline_stage_id', 'order']);
+
+            if(!Schema::hasColumn('leads', 'order')) {
+                
+            }
         });
     }
 

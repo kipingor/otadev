@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Opportunity;
 use App\Models\Project;
 use App\Models\Lead;
+use App\Models\PipelineStage;
 use App\Policies\UserPolicy;
 use App\Policies\OpportunityPolicy;
 use App\Policies\ProjectPolicy;
@@ -17,6 +18,7 @@ use App\Policies\LeadDocumentPolicy;
 use App\Policies\ConversationPolicy;
 use App\Policies\LeadQuestionPolicy;
 use App\Policies\MilestonePolicy;
+use App\Policies\PipelineStagePolicy;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -25,10 +27,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(
-            \App\Services\AI\OpenAIClient::class,
-            \App\Services\AI\OpenAIClientGuzzle::class
-        );        
+        // Comment out or wrap in conditional
+        if (config('services.openai.api_key')) {
+            $this->app->bind(
+                \App\Services\AI\OpenAIClientInterface::class,
+                \App\Services\AI\OpenAIClient::class
+            );
+        } else {
+            // Bind to a dummy/null implementation
+            $this->app->bind(
+                \App\Services\AI\OpenAIClientInterface::class,
+                \App\Services\AI\NullOpenAIClient::class  // Create this
+            );
+        }
     }
 
     /**
@@ -41,6 +52,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Opportunity::class, OpportunityPolicy::class);
         Gate::policy(Project::class, ProjectPolicy::class);
         Gate::policy(Lead::class, LeadPolicy::class);
+        Gate::policy(PipelineStage::class, PipelineStagePolicy::class);
         Gate::policy(LeadQuestionPolicy::class, LeadQuestionPolicy::class);
         Gate::policy(LeadDocumentPolicy::class, LeadDocumentPolicy::class);
         Gate::policy(ActivityPolicy::class, ActivityPolicy::class);

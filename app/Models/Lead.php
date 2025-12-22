@@ -2,10 +2,17 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
+use App\Enums\LeadStatus;
+use App\Enums\LeadType;
 use App\Policies\LeadPolicy;
 use Illuminate\Database\Eloquent\Attributes\UsePolicy;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[UsePolicy(LeadPolicy::class)]
@@ -21,10 +28,12 @@ class Lead extends Model
     protected $fillable = [
         'title',
         'description',
-        'type', // document | conversation
+        'type',
+        'status',
         'created_by',
         'owner_id',
         'pipeline_stage_id',
+        'order',
         'metadata',
         'ai_reviewed',
         'contacted_at',
@@ -41,8 +50,11 @@ class Lead extends Model
      * @var array<string, string>
      */
     protected $casts = [
+        'type' => LeadType::class,
+        'status' => LeadStatus::class,
         'metadata' => 'array',
         'ai_reviewed' => 'boolean',
+        'order' => 'integer',
         'contacted_at' => 'datetime',
         'qualified_at' => 'datetime',
         'converted_to_opportunity_at' => 'datetime',
@@ -52,83 +64,259 @@ class Lead extends Model
     ];
 
     /**
-     * Get the user who created the lead.
+     * The attributes that should be appended to arrays.
      *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * @var array<int, string>
      */
-    public function user()
+    protected $appends = [
+        'status_label',
+        'status_color',
+    ];
+
+    // ========== RELATIONSHIPS ==========
+
+    /**
+     * Get the user who created the lead.
+     */
+    public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
     }
 
     /**
      * Get the owner (assigned user) of the lead.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function owner()
+    public function owner(): BelongsTo
     {
         return $this->belongsTo(User::class, 'owner_id');
     }
 
     /**
      * Get the pipeline stage for this lead.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-    public function pipelineStage()
+    public function pipelineStage(): BelongsTo
     {
         return $this->belongsTo(PipelineStage::class, 'pipeline_stage_id');
     }
 
     /**
      * Get the questions for this lead.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function questions()
+    public function questions(): HasMany
     {
         return $this->hasMany(LeadQuestion::class);
     }
 
     /**
      * Get the documents uploaded for this lead.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function leadDocuments()
+    public function leadDocuments(): HasMany
     {
         return $this->hasMany(LeadDocument::class);
     }
 
     /**
      * Get the opportunity associated with this lead.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasOne
      */
-    public function opportunity()
+    public function opportunity(): HasOne
     {
         return $this->hasOne(Opportunity::class);
     }
 
     /**
      * Get the proposals for this lead.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function proposals()
+    public function proposals(): HasMany
     {
         return $this->hasMany(Proposal::class);
     }
 
-
     /**
      * Get the emails associated with this lead.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function emails()
+    public function emails(): HasMany
     {
         return $this->hasMany(Email::class);
+    }
+
+    /**
+     * Get the activities for this lead.
+     */
+    public function activities(): HasMany
+    {
+        return $this->hasMany(Activity::class);
+    }
+
+    /**
+     * Get the conversations for this lead.
+     */
+    public function conversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class);
+    }
+
+    /**
+     * Get the tags for this lead.
+     */
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(Tag::class, 'lead_tag');
+    }
+
+    /**
+     * Get the comments for this lead.
+     */
+    public function comments(): MorphMany
+    {
+        return $this->morphMany(Comment::class, 'commentable');
+    }
+
+    // ========== SCOPES ==========
+
+    /**
+     * Scope a query to only include leads of a given status.
+     */
+    public function scopeStatus($query, LeadStatus $status)
+    {
+        return $query->where('status', $status);
+    }
+
+    /**
+     * Scope a query to only include active leads.
+     */
+    public function scopeActive($query)
+    {
+        return $query->whereIn('status', LeadStatus::active());
+    }
+
+    /**
+     * Scope a query to only include archived leads.
+     */
+    public function scopeArchived($query)
+    {
+        return $query->where('status', LeadStatus::ARCHIVED);
+    }
+
+    /**
+     * Scope a query to only include won leads.
+     */
+    public function scopeWon($query)
+    {
+        return $query->where('status', LeadStatus::WON);
+    }
+
+    /**
+     * Scope a query to only include lost leads.
+     */
+    public function scopeLost($query)
+    {
+        return $query->where('status', LeadStatus::LOST);
+    }
+
+    /**
+     * Scope a query to filter by owner.
+     */
+    public function scopeOwnedBy($query, int $userId)
+    {
+        return $query->where('owner_id', $userId);
+    }
+
+    /**
+     * Scope a query to filter by pipeline stage.
+     */
+    public function scopeInStage($query, int $stageId)
+    {
+        return $query->where('pipeline_stage_id', $stageId);
+    }
+
+    // ========== ACCESSORS ==========
+
+    /**
+     * Get the status label.
+     */
+    public function getStatusLabelAttribute(): string
+    {
+        return $this->status->label();
+    }
+
+    /**
+     * Get the status color.
+     */
+    public function getStatusColorAttribute(): string
+    {
+        return $this->status->color();
+    }
+
+    // ========== MUTATORS ==========
+
+    /**
+     * Set the metadata attribute.
+     */
+    public function setMetadataAttribute($value): void
+    {
+        $this->attributes['metadata'] = is_array($value) 
+            ? json_encode($value) 
+            : $value;
+    }
+
+    // ========== HELPER METHODS ==========
+
+    /**
+     * Check if lead is in a terminal status.
+     */
+    public function isTerminal(): bool
+    {
+        return $this->status->isTerminal();
+    }
+
+    /**
+     * Check if lead can transition to given status.
+     */
+    public function canTransitionTo(LeadStatus $status): bool
+    {
+        return $this->status->canTransitionTo($status);
+    }
+
+    /**
+     * Check if lead has been contacted.
+     */
+    public function isContacted(): bool
+    {
+        return $this->contacted_at !== null;
+    }
+
+    /**
+     * Check if lead has been qualified.
+     */
+    public function isQualified(): bool
+    {
+        return $this->qualified_at !== null;
+    }
+
+    /**
+     * Check if lead has been converted to opportunity.
+     */
+    public function isConverted(): bool
+    {
+        return $this->converted_to_opportunity_at !== null;
+    }
+
+    /**
+     * Get days since creation.
+     */
+    public function daysSinceCreation(): int
+    {
+        return $this->created_at->diffInDays(now());
+    }
+
+    /**
+     * Get days in current stage.
+     */
+    public function daysInCurrentStage(): int
+    {
+        // This would need activity tracking to be accurate
+        // For now, return days since last status change
+        $lastStatusChange = $this->updated_at;
+        return $lastStatusChange->diffInDays(now());
     }
 }

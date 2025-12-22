@@ -35,10 +35,20 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | OpenAI Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for OpenAI API integration used in AI-powered features
+    | like document extraction, proposal generation, and content analysis.
+    |
+    */
     'openai' => [
-        'key' => env('OPENAI_API_KEY'),
-        'base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
-        'model' => env('OPENAI_MODEL', 'gpt-5'),
+        'api_key' => env('OPENAI_API_KEY'),
+        'organization' => env('OPENAI_ORGANIZATION'),
+        'default_model' => env('OPENAI_DEFAULT_MODEL', 'gpt-4'),
+        'timeout' => env('OPENAI_TIMEOUT', 60),
     ],
 
 

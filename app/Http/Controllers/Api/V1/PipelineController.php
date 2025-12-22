@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Pipeline\MovePipelineRequest;
-use App\Services\PipelineService;
+use App\Services\Pipeline\PipelineService;
 use App\Models\Lead;
 use Illuminate\Http\JsonResponse;
 
@@ -20,9 +20,9 @@ class PipelineController extends Controller
     {
         $this->authorize('update', $lead);
 
-        $this->pipelineService->move(
+        $this->pipelineService->moveLead(
             $lead,
-            $request->stage()
+            $request->stage()->value
         );
 
         return response()->json([

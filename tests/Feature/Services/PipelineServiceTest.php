@@ -5,7 +5,7 @@ namespace Tests\Feature\Services;
 use Tests\TestCase;
 use App\Models\Lead;
 use App\Models\PipelineStage as PipelineStageModel;
-use App\Services\PipelineService;
+use App\Services\Pipeline\PipelineService;
 use App\Enums\PipelineStage;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -28,7 +28,7 @@ class PipelineServiceTest extends TestCase
         ]);
 
         $service = app(PipelineService::class);
-        $service->move($lead, PipelineStage::DISCOVERY);
+        $service->moveLead($lead, PipelineStage::DISCOVERY->value);
 
         $this->assertEquals(
             $discovery->id,

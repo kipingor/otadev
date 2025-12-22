@@ -5,7 +5,7 @@ namespace App\Services\AI;
 use Illuminate\Support\Facades\Http;
 use Exception;
 
-class OpenAIClientGuzzle implements OpenAIClient
+class OpenAIClientGuzzle
 {
     protected string $apiKey;
     protected string $apiBase;

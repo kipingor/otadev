@@ -17,12 +17,12 @@ class LeadDocumentProcessed implements ShouldBroadcast
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public LeadDocument $document;
-    public string $status;
+    public array $status;
 
     /**
      * Create a new event instance.
      */
-    public function __construct(LeadDocument $document, string $status)
+    public function __construct(LeadDocument $document, array $status)
     {
         $this->document = $document;
         $this->status = $status;

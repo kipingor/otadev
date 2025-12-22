@@ -5,8 +5,9 @@ namespace Tests\Feature\Services;
 use Tests\TestCase;
 use App\Models\Lead;
 use App\Models\Proposal;
-use App\Services\ProposalGenerationService;
+use App\Services\Proposal\ProposalGenerationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Services\AI\OpenAIClientInterface;
 
 class ProposalGenerationServiceTest extends TestCase
 {

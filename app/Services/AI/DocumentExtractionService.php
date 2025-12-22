@@ -2,104 +2,284 @@
 
 namespace App\Services\AI;
 
-use Exception;
+use App\Models\LeadDocument;
 use Illuminate\Support\Facades\Storage;
-use PhpOffice\PhpWord\IOFactory;
+use Illuminate\Support\Facades\Log;
 
 class DocumentExtractionService
 {
-    /**
-     * Extract text from an uploaded document path.
-     * Supports PDF (via `pdftotext` if available) and DOCX via PHPWord.
-     *
-     * @param string $storagePath Storage path (disk default) to file
-     * @return string Extracted plain text
-     * @throws Exception
-     */
-    public function extract(string $storagePath): string
+    protected OpenAIClientInterface $openAIClient;
+
+    public function __construct(OpenAIClientInterface $openAIClient)
     {
-        $fullPath = Storage::path($storagePath);
-
-        if (!is_file($fullPath)) {
-            throw new Exception('File not found at path: ' . $fullPath);
-        }
-
-        $ext = strtolower(pathinfo($fullPath, PATHINFO_EXTENSION));
-
-        if ($ext === 'pdf') {
-            // Prefer system pdftotext if available for robust extraction
-            if (defined('PHP_WINDOWS_VERSION_BUILD')) {
-                // Windows: fallback to fallback extractor
-                return $this->extractFromPdfFallback($fullPath);
-            }
-
-            $pdftotext = trim((string) shell_exec('which pdftotext'));
-            if (!empty($pdftotext)) {
-                $out = tempnam(sys_get_temp_dir(), 'pdftxt_');
-                // Some systems require additional args for pdftotext encoding
-                $cmd = escapeshellcmd($pdftotext) . ' -enc UTF-8 ' . escapeshellarg($fullPath) . ' ' . escapeshellarg($out);
-                shell_exec($cmd);
-                $text = @file_get_contents($out) ?: '';
-                @unlink($out);
-                if (trim($text) !== '') {
-                    return $text;
-                }
-                // fallback if pdftotext produced empty string
-            }
-
-            // Fallback
-            return $this->extractFromPdfFallback($fullPath);
-        }
-
-        if (in_array($ext, ['docx', 'doc'])) {
-            try {
-                $phpWord = IOFactory::load($fullPath);
-                $text = '';
-
-                foreach ($phpWord->getSections() as $section) {
-                    // DOCX: Safely handle both Section and ContainerSection
-                    if (method_exists($section, 'getElements')) {
-                        $elements = $section->getElements();
-                        foreach ($elements as $e) {
-                            if (method_exists($e, 'getText')) {
-                                $text .= $e->getText() . "\n";
-                            } elseif (method_exists($e, 'getElements')) {
-                                // Handle nested containers (tables, groups, etc.)
-                                foreach ($e->getElements() as $innerEl) {
-                                    if (method_exists($innerEl, 'getText')) {
-                                        $text .= $innerEl->getText() . "\n";
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                return trim($text);
-            } catch (Exception $e) {
-                throw new Exception('Failed to extract DOC/DOCX: ' . $e->getMessage());
-            }
-        }
-
-        // Other types: attempt raw file_get_contents (not ideal)
-        $raw = @file_get_contents($fullPath);
-        if ($raw === false) {
-            throw new Exception('Failed to read file: ' . $fullPath);
-        }
-        return (string) $raw;
+        $this->openAIClient = $openAIClient;
     }
 
-    private function extractFromPdfFallback(string $fullPath): string
+    /**
+     * Extract data from a lead document using AI
+     */
+    public function extract(LeadDocument $document): array
     {
-        // Lightweight fallback using stream and regex — poor quality but better than nothing.
-        $contents = @file_get_contents($fullPath);
-        if ($contents === false) {
-            return '';
+        // Get document content
+        $content = $this->getDocumentContent($document);
+
+        if (empty($content)) {
+            throw new \Exception('Unable to extract content from document');
         }
 
-        // Try to recover printable text (basic PDF, may not be perfect)
-        // Remove binary/non-printable except printable, carriage return and newlines
-        $contents = preg_replace('/[^\x20-\x7E\r\n\t]+/', '', $contents);
-        return trim($contents);
+        // Prepare prompt for AI extraction
+        $prompt = $this->buildExtractionPrompt($content, $document);
+
+        // Call AI service
+        $response = $this->openAIClient->chat($prompt, [
+            'model' => 'gpt-4',
+            'temperature' => 0.3, // Lower temperature for more consistent extraction
+            'max_tokens' => 2000,
+        ]);
+
+        // Parse AI response
+        $extractedData = $this->parseExtractionResponse($response);
+
+        // Add metadata
+        $extractedData['text'] = $content;
+        $extractedData['document_id'] = $document->id;
+        $extractedData['extraction_date'] = now()->toISOString();
+
+        return $extractedData;
+    }
+
+    /**
+     * Get document content based on file type
+     */
+    protected function getDocumentContent(LeadDocument $document): string
+    {
+        $filePath = Storage::disk('private')->path($document->file_path);
+
+        if (!file_exists($filePath)) {
+            throw new \Exception('Document file not found');
+        }
+
+        return match($document->file_type) {
+            'pdf' => $this->extractFromPdf($filePath),
+            'docx', 'doc' => $this->extractFromWord($filePath),
+            'txt' => file_get_contents($filePath),
+            'csv' => $this->extractFromCsv($filePath),
+            default => throw new \Exception('Unsupported file type: ' . $document->file_type),
+        };
+    }
+
+    /**
+     * Extract text from PDF
+     */
+    protected function extractFromPdf(string $filePath): string
+    {
+        // Using Smalot PdfParser or similar library
+        try {
+            $parser = new \Smalot\PdfParser\Parser();
+            $pdf = $parser->parseFile($filePath);
+            return $pdf->getText();
+        } catch (\Exception $e) {
+            Log::error('PDF extraction failed', ['error' => $e->getMessage()]);
+            throw new \Exception('Failed to extract text from PDF');
+        }
+    }
+
+    /**
+     * Extract text from Word document
+     */
+    protected function extractFromWord(string $filePath): string
+    {
+        // Using PhpWord or similar library
+        try {
+            $phpWord = \PhpOffice\PhpWord\IOFactory::load($filePath);
+            $text = '';
+            
+            foreach ($phpWord->getSections() as $section) {
+                foreach ($section->getElements() as $element) {
+                    if (method_exists($element, 'getText')) {
+                        $text .= $element->getText() . "\n";
+                    }
+                }
+            }
+            
+            return $text;
+        } catch (\Exception $e) {
+            Log::error('Word extraction failed', ['error' => $e->getMessage()]);
+            throw new \Exception('Failed to extract text from Word document');
+        }
+    }
+
+    /**
+     * Extract content from CSV
+     */
+    protected function extractFromCsv(string $filePath): string
+    {
+        $content = [];
+        $file = fopen($filePath, 'r');
+        
+        while (($row = fgetcsv($file)) !== false) {
+            $content[] = implode(' | ', $row);
+        }
+        
+        fclose($file);
+        return implode("\n", $content);
+    }
+
+    /**
+     * Build extraction prompt for AI
+     */
+    protected function buildExtractionPrompt(string $content, LeadDocument $document): string
+    {
+        return <<<PROMPT
+You are an expert at extracting structured information from business documents.
+Analyze the following document and extract key information in JSON format.
+
+Document Type: {$document->file_type}
+Document Name: {$document->file_name}
+
+Extract the following information if present:
+1. entities: Array of people, companies, locations mentioned
+2. keywords: Array of important keywords/topics
+3. budget: Any budget or monetary values mentioned (as number)
+4. timeline: Any dates, deadlines, or timeline information
+5. requirements: List of requirements, specifications, or needs
+6. summary: Brief 2-3 sentence summary of the document
+7. confidence: Your confidence level in the extraction (0-100)
+
+Document Content:
+{$content}
+
+Return ONLY valid JSON with the structure:
+{
+  "entities": [],
+  "keywords": [],
+  "budget": null,
+  "timeline": null,
+  "requirements": [],
+  "summary": "",
+  "confidence": 0
+}
+PROMPT;
+    }
+
+    /**
+     * Parse AI response into structured data
+     */
+    protected function parseExtractionResponse(string $response): array
+    {
+        try {
+            // Remove markdown code blocks if present
+            $response = preg_replace('/```json\s*|\s*```/', '', $response);
+            
+            $data = json_decode($response, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \Exception('Invalid JSON response from AI');
+            }
+
+            // Ensure all expected fields exist
+            return [
+                'entities' => $data['entities'] ?? [],
+                'keywords' => $data['keywords'] ?? [],
+                'budget' => $data['budget'] ?? null,
+                'timeline' => $data['timeline'] ?? null,
+                'requirements' => $data['requirements'] ?? [],
+                'summary' => $data['summary'] ?? '',
+                'confidence' => $data['confidence'] ?? 0,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to parse extraction response', [
+                'error' => $e->getMessage(),
+                'response' => $response,
+            ]);
+
+            // Return empty structure
+            return [
+                'entities' => [],
+                'keywords' => [],
+                'budget' => null,
+                'timeline' => null,
+                'requirements' => [],
+                'summary' => '',
+                'confidence' => 0,
+            ];
+        }
+    }
+
+    /**
+     * Extract specific field from document
+     */
+    public function extractField(LeadDocument $document, string $field): ?string
+    {
+        $content = $this->getDocumentContent($document);
+
+        $prompt = <<<PROMPT
+Extract only the {$field} from the following document.
+Return only the extracted value, nothing else.
+
+Document:
+{$content}
+PROMPT;
+
+        return $this->openAIClient->chat($prompt, [
+            'model' => 'gpt-3.5-turbo',
+            'temperature' => 0.2,
+            'max_tokens' => 200,
+        ]);
+    }
+
+    /**
+     * Summarize document
+     */
+    public function summarize(LeadDocument $document, int $maxLength = 200): string
+    {
+        $content = $this->getDocumentContent($document);
+
+        $prompt = <<<PROMPT
+Summarize the following document in no more than {$maxLength} words.
+Focus on the key points and main purpose.
+
+Document:
+{$content}
+PROMPT;
+
+        return $this->openAIClient->chat($prompt, [
+            'model' => 'gpt-3.5-turbo',
+            'temperature' => 0.5,
+            'max_tokens' => $maxLength * 2, // Rough estimate for tokens
+        ]);
+    }
+
+    /**
+     * Classify document type
+     */
+    public function classifyDocumentType(LeadDocument $document): string
+    {
+        $content = $this->getDocumentContent($document);
+        $preview = substr($content, 0, 1000); // First 1000 characters
+
+        $prompt = <<<PROMPT
+Classify the type of this business document. Choose ONE from:
+- RFP (Request for Proposal)
+- RFQ (Request for Quote)
+- Contract
+- Invoice
+- Specification
+- Requirements Document
+- Business Plan
+- Other
+
+Document preview:
+{$preview}
+
+Return only the classification, nothing else.
+PROMPT;
+
+        return trim($this->openAIClient->chat($prompt, [
+            'model' => 'gpt-3.5-turbo',
+            'temperature' => 0.1,
+            'max_tokens' => 50,
+        ]));
     }
 }

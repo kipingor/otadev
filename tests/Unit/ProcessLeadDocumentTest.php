@@ -39,7 +39,10 @@ class ProcessLeadDocumentTest extends TestCase
         $job = new ProcessLeadDocument($document->id);
 
         // Run the job handler directly (DocumentParserService is not used because extracted_text exists)
-        $job->handle(app()->make('\App\Services\DocumentParserService'), app()->make(OpenAIClient::class));
+        $job->handle(
+            app()->make('\App\Services\DocumentParserService'),
+            app()->make(\App\Services\AI\OpenAIClientInterface::class)
+        );
 
         $document->refresh();
 
