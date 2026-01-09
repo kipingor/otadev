@@ -4,12 +4,13 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Http\Requests\StoreLeadDocumentRequest;
-use App\Jobs\ProcessLeadDocument;
+use App\Http\Requests\Lead\StoreLeadDocumentRequest;
+use App\Http\Requests\Lead\UpdateLeadDocumentRequest;
+use Illuminate\Database\Query\Builder;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use App\Models\Lead;
 use App\Models\LeadDocument;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class LeadDocumentController extends Controller
@@ -80,18 +81,20 @@ class LeadDocumentController extends Controller
         return $query->orderByDesc($column);
     }
 
-    private function paginateDocuments(Builder $query, int $perPage): Collection
+    private function paginateDocuments(Builder $query, int $perPage)
     {
         return $query->paginate($perPage);
     }
 
-    private function jsonResponse(Collection $documents): JsonResponse
+    private function jsonResponse(Collection $documents)
     {
         return response()->json($documents);
     }
 
-    private function renderDocumentsView(string $view, Collection $documents): InertiaResponse
+    private function renderDocumentsView(string $view, Collection $documents)
     {
-        return Inertia::render($view, compact('documents'));
+        return Inertia::render($view, [
+            'documents' => $documents
+        ]);
     }
 }

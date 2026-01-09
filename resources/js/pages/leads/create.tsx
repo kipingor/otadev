@@ -1,49 +1,44 @@
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectLabel,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
+import { PageHeader } from '@/components/ui/page-header';
 import AppLayout from '@/layouts/app-layout';
-import LeadDocumentUploader from '@/pages/leads/lead-document-uploader';
-import { type BreadcrumbItem } from '@/types';
-import { Head, useForm } from '@inertiajs/react';
-import { useState } from 'react';
-
-const breadcrumbs: BreadcrumbItem[] = [
-    { title: 'Leads', href: '/leads' },
-    { title: 'Create', href: '/leads/create' },
-];
+import { LeadForm } from '@/components/forms/lead-form';
+import { Head, router, useForm } from '@inertiajs/react';
 
 export default function LeadCreate() {
-    const form = useForm({
-        title: '',
-        description: '',
-        type: 'conversation',
-        document_id: null,
-    });
-
-    const [uploading, setUploading] = useState(false);
-
-    const type = form.data.type as string;
-
-    const onSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        form.post('/leads');
+    const handleSubmit = (data) => {
+        router.post('/leads', data);
     };
 
-    return (
-        <AppLayout breadcrumbs={breadcrumbs}>
-            <Head title="Create Lead" />
+    // const form = useForm({
+    //     title: '',
+    //     description: '',
+    //     type: 'conversation',
+    //     document_id: null,
+    // });
 
-            <div className="rounded bg-white p-6 shadow">
+    // const [uploading, setUploading] = useState(false);
+
+    // const type = form.data.type as string;
+
+    // const onSubmit = (e: React.FormEvent) => {
+    //     e.preventDefault();
+    //     form.post('/leads');
+    // };
+
+    return (
+        <AppLayout>
+            <PageHeader
+                title="Create Lead"
+                breadcrumbs={[
+                    { title: 'Leads', href: '/leads' },
+                    { title: 'Create', href: '/leads/create' },
+                ]}
+            />
+
+            <div className="mt-6">
+                <LeadForm onSubmit={handleSubmit} submitLabel="Create Lead" />
+            </div>
+
+            {/* <div className="rounded bg-white p-6 shadow">
                 <form onSubmit={onSubmit} className="space-y-8">
                     <div>
                         <Label className="mb-2 block">Title</Label>
@@ -105,7 +100,7 @@ export default function LeadCreate() {
                         Create Lead
                     </Button>
                 </form>
-            </div>
+            </div> */}
         </AppLayout>
     );
 }

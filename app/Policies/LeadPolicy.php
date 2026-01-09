@@ -4,7 +4,6 @@ namespace App\Policies;
 
 use App\Models\Lead;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class LeadPolicy
 {
@@ -13,8 +12,7 @@ class LeadPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
-        // return in_array($user->role, ['admin', 'sales', 'manager']);
+        return $user->hasAnyRole(['admin', 'sales', 'manager']);
     }
 
     /**
@@ -22,7 +20,8 @@ class LeadPolicy
      */
     public function view(User $user, Lead $lead): bool
     {
-        return $user->id === $lead->owner_id;
+        return $user->id === $lead->owner_id 
+            || $user->hasRole('admin');
     }
 
     /**
@@ -30,7 +29,7 @@ class LeadPolicy
      */
     public function create(User $user): bool
     {
-        return $user->hasRole('admin') || $user->hasRole('sales');
+        return $user->hasAnyRole(['admin', 'sales']);
     }
 
     /**
@@ -38,7 +37,8 @@ class LeadPolicy
      */
     public function update(User $user, Lead $lead): bool
     {
-        return $user->id === $lead->owner_id;
+        return $user->id === $lead->owner_id 
+            || $user->hasRole('admin');
     }
 
     /**
@@ -46,6 +46,23 @@ class LeadPolicy
      */
     public function delete(User $user, Lead $lead): bool
     {
-        return $user->id === $lead->owner_id;
+        return $user->id === $lead->owner_id 
+            || $user->hasRole('admin');
+    }
+
+    /**
+     * Determine whether the user can restore the lead.
+     */
+    public function restore(User $user, Lead $lead): bool
+    {
+        return $user->hasRole('admin');
+    }
+
+    /**
+     * Determine whether the user can permanently delete the lead.
+     */
+    public function forceDelete(User $user, Lead $lead): bool
+    {
+        return $user->hasRole('admin');
     }
 }

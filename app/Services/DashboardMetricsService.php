@@ -3,15 +3,49 @@
 namespace App\Services;
 
 use App\Models\Lead;
+use App\Models\User;
 use App\Models\LeadDocument;
 use App\Models\Opportunity;
 use App\Models\Project;
 use App\Models\Task;
+use App\Models\Proposal;
+use App\Services\Lead\LeadService;
+use App\Services\Pipeline\PipelineService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 class DashboardMetricsService
 {
+    public function __construct(
+        protected LeadService $leadService,
+        protected PipelineService $pipelineService,
+    ) {}
+
+    /**
+     * Get comprehensive dashboard metrics
+     */
+    public function getComprehensiveMetrics(): array
+    {
+        return Cache::remember('dashboard_metrics', 300, function () {
+            $leadStats = $this->leadService->getStatistics();
+            $pipelineStats = $this->pipelineService->getAnalytics();
+
+            return [
+                'overview' => [
+                    'total_leads' => $leadStats['total'] ?? 0,
+                    'active_leads' => ($leadStats['status']['new'] ?? 0) +
+                        ($leadStats['status']['contacted'] ?? 0),
+                    'conversion_rate' => $leadStats['conversion_rate'] ?? 0,
+                    'total_opportunities' => $pipelineStats['total_opportunities'] ?? 0,
+                ],
+                'leads_over_time' => $this->getLeadsOverTime(),
+                'opportunity_pipeline' => $pipelineStats['stages'] ?? [],
+                'revenue_over_time' => $this->getRevenueOverTime(),
+            ];
+        });
+    }
+
     public function getOverviewMetrics(): array
     {
         return [
@@ -24,32 +58,78 @@ class DashboardMetricsService
         ];
     }
 
-    public function getLeadsOverTime(int $days = 30): array
+    /**
+     * Get activity metrics
+     */
+    public function getActivityMetrics(): array
     {
-        $startDate = Carbon::now()->subDays($days);
-        
-        $leads = Lead::select(
-            DB::raw('DATE(created_at) as date'),
-            DB::raw('COUNT(*) as count')
-        )
-        ->where('created_at', '>=', $startDate)
-        ->groupBy('date')
-        ->orderBy('date')
-        ->get();
+        $weekAgo = now()->subWeek();
 
-        // Fill in missing dates with zero counts
-        $data = [];
-        for ($i = $days; $i >= 0; $i--) {
-            $date = Carbon::now()->subDays($i)->format('Y-m-d');
-            $count = $leads->where('date', $date)->first()?->count ?? 0;
-            $data[] = [
-                'date' => $date,
-                'leads' => $count,
-                'formatted_date' => Carbon::parse($date)->format('M j')
-            ];
+        return [
+            'leads_created_this_week' => Lead::where('created_at', '>=', $weekAgo)->count(),
+            'leads_updated_this_week' => Lead::where('updated_at', '>=', $weekAgo)->count(),
+            'documents_uploaded_this_week' => LeadDocument::where('created_at', '>=', $weekAgo)->count(),
+            'proposals_generated_this_week' => Proposal::where('created_at', '>=', $weekAgo)->count(),
+        ];
+    }
+
+    /**
+     * Get performance metrics
+     */
+    public function getPerformanceMetrics(): array
+    {
+        return [
+            'average_response_time' => $this->calculateAverageResponseTime(),
+            'conversion_rate' => $this->leadService->getStatistics()['conversion_rate'],
+            'win_rate' => $this->calculateWinRate(),
+            'pipeline_velocity' => $this->pipelineService->getVelocity(),
+        ];
+    }
+
+    /**
+     * Calculate average response time (time from creation to first contact)
+     */
+    protected function calculateAverageResponseTime(): float
+    {
+        $contactedLeads = Lead::whereNotNull('contacted_at')->get();
+
+        if ($contactedLeads->isEmpty()) {
+            return 0;
         }
 
-        return $data;
+        $totalHours = $contactedLeads->sum(function ($lead) {
+            return $lead->created_at->diffInHours($lead->contacted_at);
+        });
+
+        return round($totalHours / $contactedLeads->count(), 2);
+    }
+
+    /**
+     * Calculate win rate (won / (won + lost))
+     */
+    protected function calculateWinRate(): float
+    {
+        $won = Lead::where('status', 'won')->count();
+        $lost = Lead::where('status', 'lost')->count();
+        $total = $won + $lost;
+
+        return $total > 0 ? round(($won / $total) * 100, 2) : 0;
+    }
+
+    public function getLeadsOverTime(int $days = 30): array
+    {
+        $startDate = now()->subDays($days);
+
+        return Lead::selectRaw('DATE(created_at) as date, COUNT(*) as count')
+            ->where('created_at', '>=', $startDate)
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->map(fn($item) => [
+                'date' => $item->date,
+                'count' => $item->count,
+            ])
+            ->toArray();
     }
 
     public function getOpportunityPipeline(): array
@@ -70,61 +150,61 @@ class DashboardMetricsService
         })->toArray();
     }
 
-    public function getRevenueOverTime(int $months = 6): array
+    public function getRevenueOverTime(int $days = 30): array
     {
-        $startDate = Carbon::now()->subMonths($months);
-        
-        // Use driver-specific date extraction to support sqlite in tests and
-        // MySQL/Postgres in production. SQLite uses strftime, other drivers
-        // can use YEAR()/MONTH() functions.
-        $driver = DB::getDriverName();
+        $startDate = now()->subDays($days);
 
-        if ($driver === 'sqlite') {
-            $revenue = Opportunity::select(
-                DB::raw("strftime('%Y', updated_at) as year"),
-                DB::raw("strftime('%m', updated_at) as month"),
-                DB::raw('SUM(estimated_value) as revenue')
-            )
-            ->where('updated_at', '>=', $startDate)
+        return Opportunity::selectRaw('DATE(created_at) as date, SUM(estimated_value) as revenue')
             ->where('stage', 'won')
-            ->groupBy('year', 'month')
-            ->orderBy('year')
-            ->orderBy('month')
-            ->get();
-        } else {
-            $revenue = Opportunity::select(
-                DB::raw('YEAR(updated_at) as year'),
-                DB::raw('MONTH(updated_at) as month'),
-                DB::raw('SUM(estimated_value) as revenue')
-            )
-            ->where('updated_at', '>=', $startDate)
-            ->where('stage', 'won')
-            ->groupBy('year', 'month')
-            ->orderBy('year')
-            ->orderBy('month')
-            ->get();
-        }
+            ->where('created_at', '>=', $startDate)
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->map(fn($item) => [
+                'date' => $item->date,
+                'revenue' => (float) $item->revenue,
+            ])
+            ->toArray();
+    }
 
-        // Fill in missing months with zero revenue
-        $data = [];
-        for ($i = $months; $i >= 0; $i--) {
-            $date = Carbon::now()->subMonths($i);
-            $year = (string) $date->year;
-            // sqlite's strftime('%m') returns zero-padded months
-            $month = $driver === 'sqlite' ? str_pad($date->month, 2, '0', STR_PAD_LEFT) : $date->month;
-            
-            $monthRevenue = $revenue->where('year', $year)
-                ->where('month', $month)
-                ->first()?->revenue ?? 0;
-                
-            $data[] = [
-                'month' => $date->format('Y-m'),
-                'revenue' => (float) $monthRevenue,
-                'formatted_month' => $date->format('M Y')
+    /**
+     * Get top performers
+     */
+    public function getTopPerformers(int $limit = 10, string $period = 'month'): array
+    {
+        $dateFrom = match($period) {
+            'month' => now()->subMonth(),
+            'quarter' => now()->subMonths(3),
+            'year' => now()->subYear(),
+            default => now()->subMonth(),
+        };
+
+        return User::withCount([
+            'ownedLeads as won_count' => fn($q) => $q
+                ->where('status', 'won')
+                ->where('won_at', '>=', $dateFrom)
+        ])
+        ->withCount([
+            'ownedLeads as total_count' => fn($q) => $q
+                ->where('created_at', '>=', $dateFrom)
+        ])
+        ->having('won_count', '>', 0)
+        ->orderByDesc('won_count')
+        ->limit($limit)
+        ->get()
+        ->map(function ($user) {
+            return [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'won_count' => $user->won_count,
+                'total_count' => $user->total_count,
+                'win_rate' => $user->total_count > 0 
+                    ? round(($user->won_count / $user->total_count) * 100, 2) 
+                    : 0,
             ];
-        }
-
-        return $data;
+        })
+        ->toArray();
     }
 
     public function getTaskCompletionRate(): array

@@ -3,13 +3,20 @@
 namespace App\Services\Pipeline;
 
 use App\Models\Lead;
+use App\Models\User;
 use App\Models\PipelineStage;
 use App\Events\LeadMoved;
+use App\Models\AuditLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Auth;
 
 class PipelineService
 {
+    public function moveToStage(Lead $lead, string $stage, User $user)
+    {
+        //
+    }
     /**
      * Get all pipeline stages with lead counts
      */
@@ -38,6 +45,7 @@ class PipelineService
     public function moveLead(Lead $lead, string|int $newStageId, int $newOrder = 0): Lead
     {
         return DB::transaction(function () use ($lead, $newStageId, $newOrder) {
+            $lead = Lead::lockForUpdate()->findOrFail($lead->id);
             // Convert string to int if needed
             $newStageId = (int) $newStageId;
             
@@ -58,8 +66,22 @@ class PipelineService
                 $this->reorderStage($newStageId);
             }
 
+            $old = [
+                'pipeline_stage_id' => $oldStageId,
+                'order' => $oldOrder
+            ];
+
             // Dispatch event
             event(new LeadMoved($lead, $oldStageId, $newStageId));
+
+            AuditLog::create([
+                'auditable_type' => Lead::class,
+                'auditable_id' => $lead->id,
+                'user_id' => auth()->user(),
+                'event' => 'pipeline_moved',
+                'old_values' => $old,
+                'new_values' => ['pipeline_stage_id' => $newStageId],
+            ]);
 
             return $lead->refresh()->load(['pipelineStage', 'owner']);
         });

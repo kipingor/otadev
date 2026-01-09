@@ -163,7 +163,7 @@ class LeadDocumentService
      */
     public function getDownloadUrl(LeadDocument $document, int $expirationMinutes = 60): string
     {
-        return Storage::disk('private')->temporaryUrl(
+        return Storage::temporaryUrl(
             $document->file_path,
             now()->addMinutes($expirationMinutes)
         );

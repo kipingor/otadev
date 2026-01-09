@@ -10,11 +10,11 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
+import { dashboard } from '@/routes/web';
 import leads from '@/routes/leads';
-import pipelines from '@/routes/pipelines';
-import projects from '@/routes/projects';
-import opportunities from '@/routes/opportunities';
+import pipelines from '@/routes/web/pipelines';
+import projects from '@/routes/web/projects';
+import opportunities from '@/routes/web/opportunities';
 import { type NavItem } from '@/types';
 import { Link } from '@inertiajs/react';
 import { BookOpen, Folder, LayoutGrid, FileText, Columns, Briefcase } from 'lucide-react';
@@ -26,11 +26,11 @@ const mainNavItems: NavItem[] = [
         href: dashboard(),
         icon: LayoutGrid,
     },
-    // {
-    //     title: 'Leads',
-    //     href:leads.index(),
-    //     icon: FileText,
-    // },
+    {
+        title: 'Leads',
+        href:leads.index(),
+        icon: FileText,
+    },
     {
         title: 'Pipelines',
         href: pipelines.index(),

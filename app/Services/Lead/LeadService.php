@@ -11,6 +11,8 @@ use App\Events\LeadDeleted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class LeadService
 {
@@ -42,11 +44,11 @@ class LeadService
         if (isset($filters['search'])) {
             $query->where(function ($q) use ($filters) {
                 $q->where('title', 'like', "%{$filters['search']}%")
-                  ->orWhere('description', 'like', "%{$filters['search']}%");
+                    ->orWhere('description', 'like', "%{$filters['search']}%");
             });
         }
 
-        return $query->latest()->paginate($perPage);
+        return $query->latest()->paginate($perPage)->withQueryString();
     }
 
     /**
@@ -62,12 +64,12 @@ class LeadService
 
             // Set created_by to current user if not provided
             if (!isset($data['created_by'])) {
-                $data['created_by'] = auth()->id();
+                $data['created_by'] = auth()->user();
             }
 
             // Set owner_id to current user if not provided
             if (!isset($data['owner_id'])) {
-                $data['owner_id'] = auth()->id();
+                $data['owner_id'] = auth()->user();
             }
 
             $lead = Lead::create($data);
@@ -188,14 +190,16 @@ class LeadService
      */
     public function getStatistics(): array
     {
-        return [
-            'total' => Lead::count(),
-            'new' => Lead::where('status', LeadStatus::NEW->value)->count(),
-            'qualified' => Lead::where('status', LeadStatus::QUALIFIED->value)->count(),
-            'won' => Lead::where('status', LeadStatus::WON->value)->count(),
-            'lost' => Lead::where('status', LeadStatus::LOST->value)->count(),
-            'conversion_rate' => $this->calculateConversionRate(),
-        ];
+        return Cache::remember('lead_statistics', 300, function () {
+            return [
+                'total' => Lead::count(),
+                'new' => Lead::where('status', LeadStatus::NEW->value)->count(),
+                'qualified' => Lead::where('status', LeadStatus::QUALIFIED->value)->count(),
+                'won' => Lead::where('status', LeadStatus::WON->value)->count(),
+                'lost' => Lead::where('status', LeadStatus::LOST->value)->count(),
+                'conversion_rate' => $this->calculateConversionRate(),
+            ];
+        });
     }
 
     /**

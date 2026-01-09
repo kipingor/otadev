@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use App\Enums\LeadStatus;
 
 return new class extends Migration
 {
@@ -28,7 +27,7 @@ return new class extends Migration
             $table->text('description')->nullable(); // user-provided description (conversational)
             $table->enum('type', ['document', 'conversation'])->default('conversation');
             $table->string('status', 50)
-                ->default(LeadStatus::NEW->value);
+                ->default('new');
             $table->foreignId('created_by')->constrained('users');
             $table->foreignId('owner_id')->nullable()->constrained('users')->nullOnDelete(); // assigned owner
             $table->foreignId('pipeline_stage_id')->nullable()->constrained('pipeline_stages')->nullOnDelete();
@@ -37,7 +36,8 @@ return new class extends Migration
             $table->boolean('ai_reviewed')->default(false); // whether AI has extracted requirements
             $table->timestamp('contacted_at')->nullable();
             $table->timestamp('qualified_at')->nullable();
-            $table->timestamp('converted_to_opportunity_at')->nullable();
+            $table->timestamp('proposal_sent_at')->nullable();
+            $table->timestamp('negotiation_started_at')->nullable();
             $table->timestamp('won_at')->nullable();
             $table->timestamp('lost_at')->nullable();
             $table->timestamp('archived_at')->nullable();
@@ -52,10 +52,6 @@ return new class extends Migration
             $table->index(['owner_id', 'status']);
             $table->index(['pipeline_stage_id', 'status']);
             $table->index(['pipeline_stage_id', 'order']);
-
-            if(!Schema::hasColumn('leads', 'order')) {
-                
-            }
         });
     }
 

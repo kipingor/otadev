@@ -49,7 +49,7 @@ class OpportunityController extends Controller
             'status' => 'required|in:open,won,lost,abandoned',
         ]);
 
-        $opportunity = $this->opportunityService->create($validated);
+        $opportunity = Opportunity::create($validated);
 
         return response()->json([
             'success' => true,
@@ -89,12 +89,12 @@ class OpportunityController extends Controller
             'status' => 'sometimes|required|in:open,won,lost,abandoned',
         ]);
 
-        $opportunity = $this->opportunityService->update($opportunity, $validated);
+        $data = $opportunity->update($validated);
 
         return response()->json([
             'success' => true,
             'message' => 'Opportunity updated successfully',
-            'data' => $opportunity,
+            'data' => $data,
         ]);
     }
 
@@ -105,7 +105,7 @@ class OpportunityController extends Controller
     {
         $this->authorize('delete', $opportunity);
 
-        $this->opportunityService->delete($opportunity);
+        $opportunity->delete();
 
         return response()->json([
             'success' => true,

@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Vendor;
+use Illuminate\Database\Query\Builder;
+
 class VendorController extends Controller
 {
     public function index(Request $request)

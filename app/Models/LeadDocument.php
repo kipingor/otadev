@@ -4,31 +4,25 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Policies\LeadDocumentPolicy;
+use Illuminate\Database\Eloquent\Attributes\UsePolicy;
+use App\Enums\LeadDocumentStatus;
 
+#[UsePolicy(LeadDocumentPolicy::class)]
 class LeadDocument extends Model
 {
-    /**
-     * Status constants
-     */
-    public const STATUS_QUEUED = 'queued';
-    public const STATUS_PENDING = 'pending';
-    public const STATUS_PROCESSING = 'processing';
-    public const STATUS_SUCCEEDED = 'succeeded';
-    public const STATUS_FAILED = 'failed';
-
     /**
      * The attributes that are mass assignable.
      */
     protected $fillable = [
         'lead_id',
-        'file_path',
-        'file_name',
-        'file_type',
-        'file_size',
-        'processed',
+        'filename',
+        'original_name',
+        'mime_type',
+        'size',
+        'storage_path',
         'status',
         'extracted_text',
-        'metadata',
         'ai_summary',
     ];
 
@@ -36,7 +30,7 @@ class LeadDocument extends Model
      * The attributes that should be cast.
      */
     protected $casts = [
-        'processed' => 'boolean',
+        'status' => LeadDocumentStatus::class,
         'metadata' => 'array',
         'ai_summary' => 'array',
         'created_at' => 'datetime',
@@ -51,58 +45,49 @@ class LeadDocument extends Model
         return $this->belongsTo(Lead::class);
     }
 
-    /**
-     * Get all available statuses
-     */
-    public static function getStatuses(): array
+    public function scopeStatus($query, LeadDocumentStatus $status)
     {
-        return [
-            self::STATUS_QUEUED,
-            self::STATUS_PENDING,
-            self::STATUS_PROCESSING,
-            self::STATUS_SUCCEEDED,
-            self::STATUS_FAILED,
-        ];
+        return $query->where('status', $status);
     }
 
     /**
      * Check if document is queued
      */
-    public function isQueued(): bool
+    public function scopeQueued($query)
     {
-        return $this->status === self::STATUS_QUEUED;
+        return $query->whereIn('status', LeadDocumentStatus::QUEUED);
     }
 
     /**
      * Check if document is pending
      */
-    public function isPending(): bool
+    public function scopePending($query)
     {
-        return $this->status === self::STATUS_PENDING;
+        return $query->whereIn('status', LeadDocumentStatus::PENDING);
     }
 
     /**
      * Check if document is processing
      */
-    public function isProcessing(): bool
+    public function scopeProcessing($query)
     {
-        return $this->status === self::STATUS_PROCESSING;
+        return $query->whereIn('status', LeadDocumentStatus::PROCESSING);
     }
 
     /**
      * Check if document processing succeeded
      */
-    public function isSucceeded(): bool
+    public function isSucceeded($query)
     {
-        return $this->status === self::STATUS_SUCCEEDED;
+        return $query->whereIn('status', LeadDocumentStatus::SUCCEEDED);
     }
 
     /**
      * Check if document processing failed
      */
-    public function isFailed(): bool
+    public function scopeFailed($query)
     {
-        return $this->status === self::STATUS_FAILED;
+        return $query->whereIn('status', LeadDocumentStatus::FAILED);
     }
 
     /**
@@ -110,7 +95,7 @@ class LeadDocument extends Model
      */
     public function markAsProcessing(): void
     {
-        $this->update(['status' => self::STATUS_PROCESSING]);
+        $this->update(['status' => LeadDocumentStatus::PROCESSING->value]);
     }
 
     /**
@@ -119,7 +104,7 @@ class LeadDocument extends Model
     public function markAsSucceeded(): void
     {
         $this->update([
-            'status' => self::STATUS_SUCCEEDED,
+            'status' => LeadDocumentStatus::SUCCEEDED->value,
             'processed' => true,
         ]);
     }
@@ -137,7 +122,7 @@ class LeadDocument extends Model
         }
 
         $this->update([
-            'status' => self::STATUS_FAILED,
+            'status' => LeadDocumentStatus::FAILED->value,
             'processed' => false,
             'metadata' => $metadata,
         ]);

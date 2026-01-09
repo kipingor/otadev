@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Lead } from '@/types/models';
+import { Lead } from '@/types/models.types';
 import { formatDistanceToNow } from 'date-fns';
 import { route } from 'ziggy-js';
 
@@ -49,7 +49,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
     };
 
     return (
-        <Link href={route('leads.show', lead.id)}>
+        <Link href={`leads/${lead.id}`}>
             <Card className="transition-all hover:shadow-lg cursor-pointer h-full">
                 <CardHeader>
                     <div className="flex items-start justify-between gap-2">

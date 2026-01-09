@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\StoreLeadDocumentRequest;
+use App\Http\Requests\Lead\StoreLeadDocumentRequest;
 use App\Models\Lead;
 use App\Models\LeadDocument;
 use Illuminate\Http\JsonResponse;
@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use App\Services\DocumentParserService;
 use App\Jobs\ProcessLeadDocument;
-use App\Services\LeadDocumentService;
+use App\Services\Lead\LeadDocumentService;
 
 class LeadDocumentController extends Controller
 {
@@ -25,7 +25,7 @@ class LeadDocumentController extends Controller
         $file = $request->file('file');
 
         $service = new LeadDocumentService(new DocumentParserService());
-        $document = $service->store($lead, $file, $request->user());
+        $document = $service->upload($lead, $file, $request->user());
 
         return response()->json([
             'message' => 'Document uploaded successfully',

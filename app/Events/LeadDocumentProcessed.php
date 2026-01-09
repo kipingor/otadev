@@ -16,17 +16,13 @@ class LeadDocumentProcessed implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public LeadDocument $document;
-    public array $status;
-
     /**
      * Create a new event instance.
      */
-    public function __construct(LeadDocument $document, array $status)
-    {
-        $this->document = $document;
-        $this->status = $status;
-    }
+    public function __construct(
+        public LeadDocument $document, 
+        public string $status
+    ) {}
 
     /**
      * The channel the event should broadcast on.

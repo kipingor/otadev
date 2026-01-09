@@ -36,7 +36,7 @@ class EmailDraftingService
         }
 
         try {
-            $response = $this->client->generate($prompt, [
+            $response = $this->client->chat($prompt, [
                 'max_tokens' => 500,
                 'temperature' => 0.7,
                 'n' => 1,

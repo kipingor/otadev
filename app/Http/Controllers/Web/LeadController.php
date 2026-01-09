@@ -19,7 +19,8 @@ class LeadController extends Controller
     public function __construct(
         protected LeadService $leadService,
         protected LeadStatusService $leadStatusService
-    ) {}
+    ) {
+    }
 
     public function index()
     {
@@ -30,7 +31,7 @@ class LeadController extends Controller
             perPage: request()->integer('per_page', 15)
         );
         
-        return Inertia::render('Leads/Index', [
+        return Inertia::render('leads/index', [
             'leads' => $leads,
             'filters' => request()->only(['owner_id', 'pipeline_stage_id', 'status', 'search', 'per_page']),
         ]);
@@ -40,7 +41,7 @@ class LeadController extends Controller
     {
         $this->authorize('create', Lead::class);
 
-        return Inertia::render('Leads/Create', [            
+        return Inertia::render('leads/create', [
             'pipelineStages' => PipelineStage::all(),
             'users' => User::select('id', 'name', 'email')->get(),
         ]);
@@ -68,10 +69,10 @@ class LeadController extends Controller
             'leadDocuments',
             'opportunity',
             'proposals',
-            'activities' => fn($q) => $q->latest()->limit(10),
+            'activities' => fn ($q) => $q->latest()->limit(10),
         ]);
 
-        return Inertia::render('Leads/Show', [
+        return Inertia::render('leads/show', [
             'lead' => $lead,
             'availableTransitions' => $this->leadStatusService->getAvailableTransitions($lead),
             'statusHistory' => $this->leadStatusService->getStatusHistory($lead),
@@ -82,7 +83,7 @@ class LeadController extends Controller
     {
         $this->authorize('update', $lead);
 
-        return Inertia::render('Leads/Edit', [
+        return Inertia::render('leads/edit', [
             'lead' => $lead->load(['owner', 'pipelineStage']),
             'pipelineStages' => PipelineStage::all(),
             'users' => User::select('id', 'name', 'email')->get(),
@@ -100,7 +101,7 @@ class LeadController extends Controller
     {
         $this->authorize('delete', $lead);
 
-        $this->leadService->delete($lead);
+        $lead->delete();
 
         return redirect()
             ->route('leads.index')

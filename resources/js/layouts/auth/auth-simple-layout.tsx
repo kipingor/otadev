@@ -1,5 +1,5 @@
 import AppLogoIcon from '@/components/app-logo-icon';
-import { dashboard } from '@/routes';
+import { dashboard } from '@/routes/web';
 import { Link } from '@inertiajs/react';
 import { type PropsWithChildren } from 'react';
 

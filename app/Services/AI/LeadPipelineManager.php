@@ -9,7 +9,7 @@ use App\Models\PipelineStage;
 use App\Models\AuditLog;
 use Illuminate\Support\Facades\DB;
 
-class PipelineService
+class LeadPipelineManager
 {
     /** Move a lead to another pipeline stage and log the change. */
     public function moveLead(int $leadId, string $toStageKey, ?int $userId = null): Lead

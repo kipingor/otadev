@@ -1,17 +1,17 @@
-import { Head, Link, router } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
+import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import LeadCard from '@/components/leads/lead-card';
-import { Lead, PaginatedData, PipelineStage, User } from '@/types/models';
-import { useState, useCallback } from 'react';
+import AppLayout from '@/layouts/app-layout';
+import LeadCard from '@/pages/leads/lead-card';
+import { Lead, PaginatedData, Pipeline, User } from '@/types/models.types';
+import { Head, Link, router } from '@inertiajs/react';
+import { useCallback, useState } from 'react';
 import { route } from 'ziggy-js';
 
 interface Props {
@@ -22,52 +22,59 @@ interface Props {
         status?: string;
         search?: string;
     };
-    pipelineStages?: PipelineStage[];
+    pipelineStages?: Pipeline[];
     users?: User[];
 }
 
-export default function LeadsIndex({ 
-    leads, 
+export default function LeadsIndex({
+    leads,
     filters,
     pipelineStages = [],
-    users = []
+    users = [],
 }: Props) {
     const [search, setSearch] = useState(filters.search || '');
-    
-    const handleFilterChange = useCallback((key: string, value: string) => {
-        router.get(route('leads.index'), 
-            { ...filters, [key]: value },
-            { 
-                preserveState: true,
-                preserveScroll: true,
-            }
-        );
-    }, [filters]);
 
-    const handleSearch = useCallback((e: React.FormEvent) => {
-        e.preventDefault();
-        handleFilterChange('search', search);
-    }, [search, handleFilterChange]);
+    const handleFilterChange = useCallback(
+        (key: string, value: string) => {
+            router.get(
+                route('leads.index'),
+                { ...filters, [key]: value },
+                {
+                    preserveState: true,
+                    preserveScroll: true,
+                },
+            );
+        },
+        [filters],
+    );
+
+    const handleSearch = useCallback(
+        (e: React.FormEvent) => {
+            e.preventDefault();
+            handleFilterChange('search', search);
+        },
+        [search, handleFilterChange],
+    );
 
     return (
         <>
             <Head title="Leads" />
-            
+
             <AppLayout>
                 <div className="flex h-full flex-1 flex-col gap-6 p-6">
                     {/* Page Header */}
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
-                            <p className="text-muted-foreground mt-1">
+                            <h1 className="text-3xl font-bold tracking-tight">
+                                Leads
+                            </h1>
+                            <p className="mt-1 text-muted-foreground">
                                 Manage your leads and track potential customers.
                             </p>
                         </div>
-                        
+
                         <Button asChild>
-                            <Link href={route('leads.create')}>
-                                Create Lead
-                            </Link>
+                            <Link href={'leads/create'}>Create Lead</Link>
                         </Button>
                     </div>
 
@@ -90,16 +97,25 @@ export default function LeadsIndex({
 
                         <div className="flex gap-2">
                             <Select
-                                value={filters.pipeline_stage_id?.toString() || ''}
-                                onValueChange={(value) => handleFilterChange('pipeline_stage_id', value)}
+                                value={
+                                    filters.pipeline_stage_id?.toString() || ''
+                                }
+                                onValueChange={(value) =>
+                                    handleFilterChange(
+                                        'pipeline_stage_id',
+                                        value,
+                                    )
+                                }
                             >
                                 <SelectTrigger className="w-[180px]">
                                     <SelectValue placeholder="All Stages" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">All Stages</SelectItem>
                                     {pipelineStages.map((stage) => (
-                                        <SelectItem key={stage.id} value={stage.id.toString()}>
+                                        <SelectItem
+                                            key={stage.id}
+                                            value={stage.id.toString()}
+                                        >
                                             {stage.name}
                                         </SelectItem>
                                     ))}
@@ -108,15 +124,19 @@ export default function LeadsIndex({
 
                             <Select
                                 value={filters.owner_id?.toString() || ''}
-                                onValueChange={(value) => handleFilterChange('owner_id', value)}
+                                onValueChange={(value) =>
+                                    handleFilterChange('owner_id', value)
+                                }
                             >
                                 <SelectTrigger className="w-[180px]">
                                     <SelectValue placeholder="All Owners" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">All Owners</SelectItem>
                                     {users.map((user) => (
-                                        <SelectItem key={user.id} value={user.id.toString()}>
+                                        <SelectItem
+                                            key={user.id}
+                                            value={user.id.toString()}
+                                        >
                                             {user.name}
                                         </SelectItem>
                                     ))}
@@ -134,31 +154,44 @@ export default function LeadsIndex({
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                            <p className="text-muted-foreground text-lg">
+                            <p className="text-lg text-muted-foreground">
                                 No leads found
                             </p>
-                            <p className="text-muted-foreground text-sm mt-2">
+                            <p className="mt-2 text-sm text-muted-foreground">
                                 Create your first lead to get started
                             </p>
                             <Button asChild className="mt-4">
-                                <Link href={route('leads.create')}>
-                                    Create Lead
-                                </Link>
+                                <Link href={'leads/create'}>Create Lead</Link>
                             </Button>
                         </div>
                     )}
 
                     {/* Pagination */}
-                    {leads.meta.last_page > 1 && (
-                        <div className="flex items-center justify-center gap-2 mt-6">
+                    {leads?.meta?.last_page > 1 && (
+                        <div className="mt-6 flex items-center justify-center gap-2">
                             {leads.links.map((link, index) => (
                                 <Button
                                     key={index}
-                                    variant={link.active ? 'default' : 'outline'}
+                                    variant={
+                                        link.active ? 'default' : 'outline'
+                                    }
                                     size="sm"
                                     disabled={!link.url}
-                                    onClick={() => link.url && router.visit(link.url)}
-                                    dangerouslySetInnerHTML={{ __html: link.label }}
+                                    onClick={() =>
+                                        link.url &&
+                                        router.get(
+                                            link.url,
+                                            {},
+                                            {
+                                                preserveScroll: true,
+                                                preserveState: true,
+                                                only: ['leads', 'filters'],
+                                            },
+                                        )
+                                    }
+                                    dangerouslySetInnerHTML={{
+                                        __html: link.label,
+                                    }}
                                 />
                             ))}
                         </div>

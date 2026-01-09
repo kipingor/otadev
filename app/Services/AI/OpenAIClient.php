@@ -21,7 +21,7 @@ class OpenAIClient implements OpenAIClientInterface
     /**
      * Default model
      */
-    protected string $defaultModel = 'gpt-4';
+    protected string $defaultModel = 'gpt-5';
 
     /**
      * Request timeout in seconds

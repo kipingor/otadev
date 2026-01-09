@@ -4,7 +4,7 @@ import { type BreadcrumbItem } from '@/types';
 import { useState } from 'react';
 import LeadDocumentUploader from '@/pages/leads/lead-document-uploader';
 import { useLeadDocumentsRealtime } from '@/hooks/use-lead-documents-realtime';
-import Badge from '@/components/ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, FileText, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 
@@ -126,7 +126,7 @@ export default function LeadShow() {
                                                 </p>
                                             </div>
                                             <div className="flex items-center gap-2 flex-shrink-0">
-                                                <Badge status={d.status} />
+                                                <Badge>{d.status}</Badge>
                                             </div>
                                         </div>
                                     ))}

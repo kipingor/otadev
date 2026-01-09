@@ -18,7 +18,7 @@ use App\Http\Controllers\Web\VendorController;
 // Welcome page for unauthenticated users — expose at root as `home`
 Route::get('/', function () {
     if (Auth::check()) {
-        return redirect()->route('dashboard');
+        return redirect()->route('web.dashboard');
     }
     return Inertia::render('welcome', [
         'canRegister' => Features::enabled(Features::registration()),
@@ -42,24 +42,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
 // Authenticated routes
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified'])->name('web.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/api/dashboard/metrics', [DashboardController::class, 'metrics'])->name('dashboard.metrics');
 
     // routes/domain/opportunities.
-    Route::prefix('opportunities')->name('opportunities.')->group(function () {
-        Route::resource('opportunities', OpportunityController::class);
-    });
+    Route::resource('opportunities', OpportunityController::class);
 
     // routes/domain/projects.php
-    Route::prefix('projects')->name('projects.')->group(function () {
-        Route::resource('projects', ProjectController::class);
-    });
+    Route::resource('projects', ProjectController::class);
 
     // routes/domain/pipelines.php
-    Route::prefix('pipelines')->name('pipelines.')->group(function () {
-        Route::resource('pipelines', PipelineController::class);
-    });
+    Route::resource('pipelines', PipelineController::class);
 
     Route::resource('suppliers', SupplierController::class);
 

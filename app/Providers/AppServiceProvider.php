@@ -3,22 +3,6 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Gate;
-use App\Models\User;
-use App\Models\Opportunity;
-use App\Models\Project;
-use App\Models\Lead;
-use App\Models\PipelineStage;
-use App\Policies\UserPolicy;
-use App\Policies\OpportunityPolicy;
-use App\Policies\ProjectPolicy;
-use App\Policies\LeadPolicy;
-use App\Policies\ActivityPolicy;
-use App\Policies\LeadDocumentPolicy;
-use App\Policies\ConversationPolicy;
-use App\Policies\LeadQuestionPolicy;
-use App\Policies\MilestonePolicy;
-use App\Policies\PipelineStagePolicy;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -27,17 +11,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Comment out or wrap in conditional
-        if (config('services.openai.api_key')) {
+        if (!empty(config('services.openai.api_key'))) {
             $this->app->bind(
                 \App\Services\AI\OpenAIClientInterface::class,
                 \App\Services\AI\OpenAIClient::class
             );
         } else {
-            // Bind to a dummy/null implementation
             $this->app->bind(
                 \App\Services\AI\OpenAIClientInterface::class,
-                \App\Services\AI\NullOpenAIClient::class  // Create this
+                \App\Services\AI\NullOpenAIClient::class
             );
         }
     }
@@ -48,15 +30,17 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Register model policies so `Gate::authorize('action', Model::class)` works
-        Gate::policy(User::class, UserPolicy::class);
-        Gate::policy(Opportunity::class, OpportunityPolicy::class);
-        Gate::policy(Project::class, ProjectPolicy::class);
-        Gate::policy(Lead::class, LeadPolicy::class);
-        Gate::policy(PipelineStage::class, PipelineStagePolicy::class);
-        Gate::policy(LeadQuestionPolicy::class, LeadQuestionPolicy::class);
-        Gate::policy(LeadDocumentPolicy::class, LeadDocumentPolicy::class);
-        Gate::policy(ActivityPolicy::class, ActivityPolicy::class);
-        Gate::policy(ConversationPolicy::class, ConversationPolicy::class);
-        Gate::policy(MilestonePolicy::class, MilestonePolicy::class);
+
+        // Storage::disk('local')->buildTemporaryUrlsUsing(
+
+        //     function (string $path, DateTime $expiration, array $options) {
+        //         return URL::temporarySignedRoute(
+        //             'files.download',
+        //             $expiration,
+        //             array_merge($options, ['path' => $path])
+        //         );
+        //     }
+
+        // );
     }
 }

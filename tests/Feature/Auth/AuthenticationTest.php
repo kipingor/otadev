@@ -3,10 +3,12 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Models\Lead;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Fortify\Features;
 use Tests\TestCase;
+use Spatie\Permission\Models\Role;
 
 class AuthenticationTest extends TestCase
 {
@@ -95,5 +97,46 @@ class AuthenticationTest extends TestCase
         ]);
 
         $response->assertTooManyRequests();
+    }
+
+    public function test_admin_can_view_any_leads(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin');
+
+        $this->actingAs($admin);
+
+        $this->assertTrue($admin->can('viewAny', Lead::class));
+    }
+
+    public function test_sales_user_can_create_leads(): void
+    {
+        $sales = User::factory()->create();
+        $sales->assignRole('sales');
+
+        $this->actingAs($sales);
+
+        $this->assertTrue($sales->can('create', Lead::class));
+    }
+
+    public function test_user_can_view_own_leads(): void
+    {
+        $user = User::factory()->create();
+        $lead = Lead::factory()->create(['owner_id' => $user->id]);
+
+        $this->actingAs($user);
+
+        $this->assertTrue($user->can('view', $lead));
+    }
+
+    public function test_user_cannot_view_others_leads(): void
+    {
+        $user = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $lead = Lead::factory()->create(['owner_id' => $otherUser->id]);
+
+        $this->actingAs($user);
+
+        $this->assertFalse($user->can('view', $lead));
     }
 }

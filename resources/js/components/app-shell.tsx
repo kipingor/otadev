@@ -1,4 +1,5 @@
 import { SidebarProvider } from '@/components/ui/sidebar';
+import { GlobalSearch } from '@/components/global-search';
 import { SharedData } from '@/types';
 import { usePage } from '@inertiajs/react';
 
@@ -16,5 +17,12 @@ export function AppShell({ children, variant = 'header' }: AppShellProps) {
         );
     }
 
-    return <SidebarProvider defaultOpen={isOpen}>{children}</SidebarProvider>;
+    return (
+        <>            
+            <SidebarProvider defaultOpen={isOpen}>
+                <GlobalSearch />
+                {children}
+            </SidebarProvider>;
+        </>
+    );
 }

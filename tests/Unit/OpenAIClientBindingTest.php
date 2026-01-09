@@ -9,6 +9,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 class OpenAIClientBindingTest extends TestCase
 {
+    use RefreshDatabase;
+
     /** @test */
     public function it_resolves_the_correct_implementation()
     {
@@ -37,7 +39,7 @@ class OpenAIClientBindingTest extends TestCase
 
         $client = app(OpenAIClient::class);
 
-        $result = $client->generate('Hello world');
+        $result = $client->chat('Hello world');
 
         $this->assertEquals('Mocked AI response', $result);
     }

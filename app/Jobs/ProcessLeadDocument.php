@@ -3,8 +3,9 @@
 namespace App\Jobs;
 
 use App\Models\LeadDocument;
+use App\Enums\LeadDocumentStatus;
 use App\Services\DocumentParserService;
-use App\Services\AI\OpenAIClient;
+use App\Services\AI\OpenAIClientInterface;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -29,8 +30,10 @@ class ProcessLeadDocument implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(DocumentParserService $parser, OpenAIClient $client): void
-    {
+    public function handle(
+        DocumentParserService $parser,
+        OpenAIClientInterface $client
+    ): void {
         $document = LeadDocument::find($this->documentId);
         if (!$document) {
             return;
@@ -38,7 +41,7 @@ class ProcessLeadDocument implements ShouldQueue
 
         // mark processing
         try {
-            $document->status = LeadDocument::STATUS_PROCESSING;
+            $document->status = LeadDocumentStatus::PROCESSING;
             $document->save();
         } catch (\Throwable $e) {
             report($e);
@@ -61,21 +64,21 @@ class ProcessLeadDocument implements ShouldQueue
         }
 
         if (empty($text)) {
-            $document->status = LeadDocument::STATUS_FAILED;
+            $document->status = LeadDocumentStatus::FAILED;
             $document->save();
-            event(new \App\Events\LeadDocumentProcessed($document, LeadDocument::STATUS_FAILED));
+            event(new \App\Events\LeadDocumentProcessed($document, LeadDocumentStatus::FAILED->value));
             return; // nothing to summarize
         }
 
         try {
             $prompt = "Summarize the following document into a concise summary (3-6 bullet points) and extract any clear requirements or action items.\n\nDocument:\n" . mb_substr($text, 0, 30000);
-            $summary = $client->generate($prompt, ['max_tokens' => 500, 'temperature' => 0.2]);
+            $summary = $client->chat($prompt, ['max_tokens' => 500, 'temperature' => 0.2]);
 
             $document->ai_summary = [
                 'summary' => trim($summary),
                 'generated_at' => now(),
             ];
-            $document->status = LeadDocument::STATUS_SUCCEEDED;
+            $document->status = LeadDocumentStatus::SUCCEEDED;
             $document->save();
 
             activity()
@@ -84,13 +87,13 @@ class ProcessLeadDocument implements ShouldQueue
                 ->log('AI generated document summary');
 
             // Broadcast the result so UI can update in real-time
-            event(new \App\Events\LeadDocumentProcessed($document, LeadDocument::STATUS_SUCCEEDED));
+            event(new \App\Events\LeadDocumentProcessed($document, LeadDocumentStatus::SUCCEEDED->value));
         } catch (\Throwable $e) {
             report($e);
             try {
-                $document->status = LeadDocument::STATUS_FAILED;
+                $document->status = LeadDocumentStatus::FAILED;
                 $document->save();
-                event(new \App\Events\LeadDocumentProcessed($document, LeadDocument::STATUS_FAILED));
+                event(new \App\Events\LeadDocumentProcessed($document, LeadDocumentStatus::FAILED->value));
             } catch (\Throwable $inner) {
                 report($inner);
             }

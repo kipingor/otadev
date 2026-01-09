@@ -32,7 +32,7 @@ class DocumentExtractionService
 
         // Call AI service
         $response = $this->openAIClient->chat($prompt, [
-            'model' => 'gpt-4',
+            'model' => 'gpt-5',
             'temperature' => 0.3, // Lower temperature for more consistent extraction
             'max_tokens' => 2000,
         ]);
@@ -87,20 +87,20 @@ class DocumentExtractionService
     /**
      * Extract text from Word document
      */
-    protected function extractFromWord(string $filePath): string
+    protected function extractFromWord(string $filePath): array
     {
         // Using PhpWord or similar library
         try {
-            $phpWord = \PhpOffice\PhpWord\IOFactory::load($filePath);
-            $text = '';
+            $text = \PhpOffice\PhpWord\IOFactory::extractVariables($filePath);
+            // $text = '';
             
-            foreach ($phpWord->getSections() as $section) {
-                foreach ($section->getElements() as $element) {
-                    if (method_exists($element, 'getText')) {
-                        $text .= $element->getText() . "\n";
-                    }
-                }
-            }
+            // foreach ($phpWord->getSections() as $section) {
+            //     foreach ($section->getElements() as $element) {
+            //         if (method_exists($element, 'getText')) {
+            //             $text .= $element->getText() . "\n";
+            //         }
+            //     }
+            // }
             
             return $text;
         } catch (\Exception $e) {

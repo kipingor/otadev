@@ -26,7 +26,7 @@ class AiController extends Controller
     {
         $payload = $request->validated();
 
-        $email = $emailService->draft($payload['context'] ?? '', $payload['instructions'] ?? '');
+        $email = $emailService->draftEmail($payload['context'] ?? '', $payload['instructions'] ?? '');
 
         return response()->json(['ok' => true, 'email' => $email]);
     }

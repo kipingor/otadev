@@ -16,7 +16,8 @@ class LeadController extends Controller
     public function __construct(
         protected LeadService $leadService,
         protected LeadStatusService $leadStatusService
-    ) {}
+    ) {
+    }
 
     public function index(Request $request): JsonResponse
     {
@@ -39,7 +40,7 @@ class LeadController extends Controller
      * Store a newly created lead.
      */
     public function store(StoreLeadRequest $request): JsonResponse
-    {        
+    {
         $lead = $this->leadService->create($request->validated());
 
         return response()->json([
@@ -71,14 +72,14 @@ class LeadController extends Controller
     /**
      * Update the specified lead.
      */
-    public function update(StoreLeadRequest $request, Lead $lead): JsonResponse
-    {   
-        $lead = $this->leadService->update($lead, $request->validated());
+    public function update(UpdateLeadRequest $request, Lead $lead): JsonResponse
+    {
+        $data = $this->leadService->update($lead, $request->validated());
 
         return response()->json([
             'success' => true,
             'message' => 'Lead updated successfully',
-            'data' => $lead,
+            'data' => $data,
         ]);
     }
 
@@ -89,7 +90,7 @@ class LeadController extends Controller
     {
         $this->authorize('delete', $lead);
 
-        $this->leadService->delete($lead);
+        $lead->delete();
 
         return response()->json([
             'success' => true,
@@ -120,7 +121,7 @@ class LeadController extends Controller
 
         $newStatus = \App\Enums\LeadStatus::from($request->status);
 
-        if($newStatus === \App\Enums\LeadStatus::LOST && $request->has('reason')) {
+        if ($newStatus === \App\Enums\LeadStatus::LOST && $request->has('reason')) {
             $this->leadStatusService->markAsLost($lead, $request->reason);
         } else {
             $this->leadStatusService->transition($lead, $newStatus);

@@ -16,6 +16,7 @@ class ActivityPolicy
     {
         return $user->hasRole('admin') ||
                $activity->causer_id === $user->id ||
-               $activity->subject?->owner_id === $user->id;
+               $activity->subject?->owner_id === $user->id  || 
+               $user->hasRole('admin');
     }
 }

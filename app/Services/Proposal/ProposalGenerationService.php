@@ -13,12 +13,9 @@ use Illuminate\Support\Facades\Log;
 
 class ProposalGenerationService
 {
-    protected OpenAIClientInterface $openAIClient;
-
-    public function __construct(OpenAIClientInterface $openAIClient)
-    {
-        $this->openAIClient = $openAIClient;
-    }
+    public function __construct(
+        protected OpenAIClientInterface $openAIClient
+    ) {}
 
     /**
      * Generate a proposal using AI
@@ -118,13 +115,12 @@ class ProposalGenerationService
 
         try {
             $content = $this->openAIClient->chat($prompt, [
-                'model' => 'gpt-4',
+                'model' => 'gpt-5',
                 'temperature' => 0.7,
                 'max_tokens' => $this->getMaxTokensForLength($length),
             ]);
 
             return $content;
-
         } catch (\Exception $e) {
             Log::error('Proposal generation failed', [
                 'error' => $e->getMessage(),
@@ -152,7 +148,7 @@ class ProposalGenerationService
         $promptParts[] = "You are an expert business proposal writer. Generate a professional, compelling proposal based on the provided information.";
 
         // Template instruction
-        $templateInstructions = match($template) {
+        $templateInstructions = match ($template) {
             'technical' => "Create a technical proposal with detailed specifications, implementation plans, and technical methodology.",
             'executive' => "Create an executive proposal focused on strategic value, ROI, and high-level benefits. Keep it concise and business-focused.",
             default => "Create a standard business proposal with problem statement, proposed solution, benefits, timeline, and next steps.",
@@ -160,7 +156,7 @@ class ProposalGenerationService
         $promptParts[] = $templateInstructions;
 
         // Tone instruction
-        $toneInstructions = match($tone) {
+        $toneInstructions = match ($tone) {
             'formal' => "Use formal, corporate language. Be professional and authoritative.",
             'friendly' => "Use friendly, approachable language while maintaining professionalism.",
             default => "Use professional, clear language that builds confidence and trust.",
@@ -168,7 +164,7 @@ class ProposalGenerationService
         $promptParts[] = $toneInstructions;
 
         // Length instruction
-        $lengthInstructions = match($length) {
+        $lengthInstructions = match ($length) {
             'brief' => "Keep the proposal brief and to the point (1-2 pages).",
             'detailed' => "Create a comprehensive, detailed proposal (4-6 pages) with thorough explanations.",
             default => "Create a standard-length proposal (2-3 pages) with appropriate detail.",
@@ -178,7 +174,7 @@ class ProposalGenerationService
         // Context
         $promptParts[] = "\n### Lead Information:";
         $promptParts[] = "Title: " . ($context['lead_title'] ?? 'Untitled');
-        
+
         if (!empty($context['lead_description'])) {
             $promptParts[] = "Description: " . $context['lead_description'];
         }
@@ -210,13 +206,26 @@ class ProposalGenerationService
                 $promptParts[] = "Timeline: " . $context['metadata']['timeline'];
             }
             if (isset($context['metadata']['requirements'])) {
-                $promptParts[] = "Requirements: " . implode(', ', $context['metadata']['requirements']);
+                $requirements = $context['metadata']['requirements'];
+
+                // Handle both string and array
+                if (is_array($requirements)) {
+                    $promptParts[] = "Requirements: " . implode(', ', $requirements);
+                } else {
+                    $promptParts[] = "Requirements: " . $requirements;
+                }
             }
         }
 
         // Pricing instruction
         if ($includePricing) {
             $promptParts[] = "\nInclude a pricing section with estimated costs and payment terms.";
+            $promptParts[] = "1. Executive Summary";
+            $promptParts[] = "2. Project Scope";
+            $promptParts[] = "3. Deliverables";
+            $promptParts[] = "4. Timeline";
+            $promptParts[] = "5. Pricing";
+            $promptParts[] = "6. Terms and Conditions";
         }
 
         // Custom instructions
@@ -238,7 +247,7 @@ class ProposalGenerationService
     {
         $template = $options['template'] ?? 'standard';
 
-        $prefix = match($template) {
+        $prefix = match ($template) {
             'technical' => 'Technical Proposal',
             'executive' => 'Executive Proposal',
             default => 'Business Proposal',
@@ -252,7 +261,7 @@ class ProposalGenerationService
      */
     protected function getMaxTokensForLength(string $length): int
     {
-        return match($length) {
+        return match ($length) {
             'brief' => 1500,
             'detailed' => 4000,
             default => 2500,
@@ -265,7 +274,7 @@ class ProposalGenerationService
     public function regenerate(Proposal $proposal, ?string $customInstructions = null): Proposal
     {
         $options = $proposal->generation_options ?? [];
-        
+
         if ($customInstructions) {
             $options['custom_instructions'] = $customInstructions;
         }
@@ -317,16 +326,16 @@ class ProposalGenerationService
     {
         // This would use a PDF library like DomPDF or wkhtmltopdf
         // For now, return a placeholder
-        
+
         $html = $this->convertMarkdownToHtml($proposal->content);
-        
+
         // Use PDF generation library
         // $pdf = PDF::loadHTML($html);
         // $pdfPath = storage_path("proposals/proposal-{$proposal->id}.pdf");
         // $pdf->save($pdfPath);
-        
+
         // return $pdfPath;
-        
+
         return 'pdf-generation-placeholder';
     }
 
@@ -338,7 +347,7 @@ class ProposalGenerationService
         // Use a Markdown parser like Parsedown
         // $parsedown = new Parsedown();
         // return $parsedown->text($markdown);
-        
+
         // Placeholder
         return nl2br(e($markdown));
     }
@@ -407,7 +416,7 @@ class ProposalGenerationService
         // Check for required sections (basic check)
         $requiredKeywords = ['solution', 'benefit', 'timeline', 'price', 'cost', 'next'];
         $content = strtolower($proposal->content);
-        
+
         foreach ($requiredKeywords as $keyword) {
             if (strpos($content, $keyword) === false) {
                 $issues[] = "Missing '{$keyword}' section or content";

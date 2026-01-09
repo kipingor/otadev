@@ -45,9 +45,9 @@ export function useDashboardMetrics(refetchInterval: number = 30000) {
     return useQuery<DashboardMetrics>({
         queryKey: ['dashboard-metrics'],
         queryFn: async () => {
-            // Dashboard metrics are exposed as a web route at /api/dashboard/metrics
+            // Dashboard metrics are exposed as a web route at /api/v1/dashboard/metrics
             // (this repo places them under web routes, not api/v1) — use fetch
-            const res = await fetch('/api/dashboard/metrics', {
+            const res = await api.fetch('dashboard/metrics', {
                 credentials: 'include',
                 headers: { Accept: 'application/json' },
             });

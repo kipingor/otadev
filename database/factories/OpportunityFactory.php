@@ -28,7 +28,7 @@ class OpportunityFactory extends Factory
             'title' => $this->faker->sentence(3),
             'summary' => $this->faker->paragraph,
             'estimated_value' => $this->faker->randomFloat(2, 5000, 200000),
-            'currency' => $this->faker->randomElement(['USD', 'EUR', 'GBP']),
+            'currency' => $this->faker->randomElement(['USD', 'EUR', 'GBP', 'KES']),
             'stage' => $stage,
             'owner_id' => User::query()->inRandomOrder()->first()?->id ?? User::factory(),
             'expected_close_date' => $this->faker->dateTimeBetween('+1 week', '+6 months'),

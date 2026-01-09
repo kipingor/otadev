@@ -15,7 +15,7 @@ class OpenAIClientGuzzle
     {
         $this->apiKey = config('ai.api_key', env('OPENAI_API_KEY'));
         $this->apiBase = rtrim(config('ai.api_base', 'https://api.openai.com/v1'), '/');
-        $this->model = config('ai.model', 'gpt-4o-mini');
+        $this->model = config('ai.model', 'gpt-5');
 
         if (!$this->apiKey) {
             throw new Exception("Missing OpenAI API Key. Set OPENAI_API_KEY in your .env file.");

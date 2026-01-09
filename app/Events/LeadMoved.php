@@ -14,7 +14,7 @@ use Illuminate\Queue\SerializesModels;
 
 class LeadMoved implements ShouldBroadcast
 {
-    use Dispatchable, InteractsWithSockets, ShouldBroadcast;
+    use Dispatchable, InteractsWithSockets;
 
     use SerializesModels;
 

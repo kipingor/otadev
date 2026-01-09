@@ -39,6 +39,33 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        // Create base permissions
+        $permissions = [
+            'view leads',
+            'create leads',
+            'edit leads',
+            'delete leads',
+            'move leads',
+            'view opportunities',
+            'create opportunities',
+            'edit opportunities',
+            'delete opportunities',
+            'view projects',
+            'create projects',
+            'edit projects',
+            'delete projects',
+            'view pipelines',
+            'create pipelines',
+            'edit pipelines',
+            'delete pipelines',
+            'manage users',
+            'view reports',
+        ];
+
+        foreach ($permissions as $permission) {
+            Permission::firstOrCreate(['name' => $permission]);
+        }
+
         // Roles
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
         $adminRole->syncPermissions(Permission::all());
@@ -196,7 +223,7 @@ class DatabaseSeeder extends Seeder
         // -- To fix: convert array fields to JSON before save --
         $suppliers = Supplier::factory(8)->make([
             'created_at' => $randomDate(),
-        ])->each(function($supplier) {
+        ])->each(function ($supplier) {
             // The following fields must be JSON strings for insert:
             foreach (['contact_info', 'products', 'metadata'] as $jsonField) {
                 if (isset($supplier->$jsonField) && is_array($supplier->$jsonField)) {
@@ -208,7 +235,7 @@ class DatabaseSeeder extends Seeder
 
         $vendors = Vendor::factory(5)->make([
             'created_at' => $randomDate(),
-        ])->each(function($vendor) {
+        ])->each(function ($vendor) {
             // The following fields must be JSON strings for insert:
             foreach (['contact_info', 'metadata'] as $jsonField) {
                 if (isset($vendor->$jsonField) && is_array($vendor->$jsonField)) {

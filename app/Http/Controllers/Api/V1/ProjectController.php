@@ -48,7 +48,7 @@ class ProjectController extends Controller
             'budget' => 'nullable|numeric|min:0',
         ]);
 
-        $project = $this->projectService->create($validated);
+        $project = Project::create($validated);
 
         return response()->json([
             'success' => true,
@@ -88,12 +88,12 @@ class ProjectController extends Controller
             'budget' => 'nullable|numeric|min:0',
         ]);
 
-        $project = $this->projectService->update($project, $validated);
+        $data = $project->update($validated);
 
         return response()->json([
             'success' => true,
             'message' => 'Project updated successfully',
-            'data' => $project,
+            'data' => $data,
         ]);
     }
 
@@ -104,7 +104,7 @@ class ProjectController extends Controller
     {
         $this->authorize('delete', $project);
 
-        $this->projectService->delete($project);
+        $project->delete();
 
         return response()->json([
             'success' => true,

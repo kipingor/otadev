@@ -1,7 +1,7 @@
 import { PlaceholderPattern } from '@/components/ui/placeholder-pattern';
 import ActivityFeed from "@/components/activity/ActivityFeed";
 import AppLayout from '@/layouts/app-layout';
-import { dashboard } from '@/routes';
+import { dashboard } from '@/routes/web';
 import { type BreadcrumbItem } from '@/types';
 import { Head } from '@inertiajs/react';
 

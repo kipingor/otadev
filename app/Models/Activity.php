@@ -3,7 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use App\Policies\ActivityPolicy;
+use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 
+#[UsePolicy(ActivityPolicy::class)]
 class Activity extends Model
 {
     protected $fillable = [

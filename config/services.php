@@ -47,7 +47,7 @@ return [
     'openai' => [
         'api_key' => env('OPENAI_API_KEY'),
         'organization' => env('OPENAI_ORGANIZATION'),
-        'default_model' => env('OPENAI_DEFAULT_MODEL', 'gpt-4'),
+        'default_model' => env('OPENAI_DEFAULT_MODEL', 'gpt-5'),
         'timeout' => env('OPENAI_TIMEOUT', 60),
     ],
 

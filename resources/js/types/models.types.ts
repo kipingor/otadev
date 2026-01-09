@@ -3,31 +3,6 @@
  * Aligned with Laravel backend models
  */
 
-export enum LeadStatus {
-    NEW = 'new',
-    CONTACTED = 'contacted',
-    QUALIFIED = 'qualified',
-    PROPOSAL_SENT = 'proposal_sent',
-    NEGOTIATION = 'negotiation',
-    WON = 'won',
-    LOST = 'lost',
-    ARCHIVED = 'archived',
-}
-
-export enum PipelineStageType {
-    INTAKE = 'intake',
-    DISCOVERY = 'discovery',
-    PROPOSAL = 'proposal',
-    NEGOTIATION = 'negotiation',
-    CLOSED_WON = 'closed_won',
-    CLOSED_LOST = 'closed_lost',
-}
-
-export enum LeadType {
-    DOCUMENT = 'document',
-    CONVERSATION = 'conversation',
-}
-
 export interface User {
     id: number;
     name: string;
@@ -37,11 +12,13 @@ export interface User {
     updated_at: string;
 }
 
-export interface PipelineStage {
+export interface Pipeline {
     id: number;
+    key: string;
     name: string;
-    type: PipelineStageType;
+    type: PipelineStage;
     order: number;
+    label: string | null;
     color: string | null;
     created_at: string;
     updated_at: string;

@@ -48,7 +48,8 @@ class SanctumFlowTest extends TestCase
         // After login, the authenticated web session should allow access to
         // the dashboard metrics endpoint (web route guarded by auth middleware)
         $metricsResponse = $this->actingAs($user)->getJson('/api/v1/dashboard/metrics');
-        $metricsResponse->assertStatus(200)->assertJsonStructure([
+        $metricsResponse->assertStatus(200)
+            ->assertJsonStructure([
             'overview' => [
                 'total_leads',
                 'active_leads',

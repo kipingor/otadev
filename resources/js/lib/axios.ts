@@ -1,6 +1,6 @@
 // resources/js/lib/axios.ts
 import initAuth from '@/lib/initAuth';
-import showAuthErrorUI from '@/lib/auth-ui';
+import { showAuthErrorUI } from '@/lib/auth-ui';
 import axios from 'axios';
 
 /**

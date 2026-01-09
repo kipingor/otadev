@@ -9,6 +9,7 @@ use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
+use App\Models\ActivityLog;
 
 class ActivityCreated  implements ShouldBroadcast
 {
@@ -17,10 +18,9 @@ class ActivityCreated  implements ShouldBroadcast
     /**
      * Create a new event instance.
      */
-    public function __construct(public ActivityLog $activity)
-    {
-        //
-    }
+    public function __construct(
+        public ActivityLog $activity
+    ) {}
 
     /**
      * Get the channels the event should broadcast on.
