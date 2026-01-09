@@ -43,66 +43,133 @@ Route::prefix('v1')->name('api.')->group(function () {
             ]);
         });
 
-        // Leads Management        
-        Route::post('leads/{lead}/transition', [LeadController::class, 'transition'])->name('leads.transition');
-        Route::get('leads/statistics', [LeadController::class, 'statistics'])->name('leads.statistics');
+        // ========================================================================
+        // LEADS MANAGEMENT
+        // ========================================================================
+        // FIXED: Custom routes BEFORE resource routes to prevent {id} matching
+        
+        // Custom lead routes (specific paths first)
+        Route::get('leads/statistics', [LeadController::class, 'statistics'])
+            ->name('leads.statistics');
+        
+        Route::post('leads/bulk', [LeadController::class, 'bulkStore'])
+            ->name('leads.bulk-store');
+        
+        Route::patch('leads/bulk', [LeadController::class, 'bulkUpdate'])
+            ->name('leads.bulk-update');
+        
+        Route::delete('leads/bulk', [LeadController::class, 'bulkDestroy'])
+            ->name('leads.bulk-destroy');
+        
+        // Lead-specific action routes
+        Route::post('leads/{lead}/transition', [LeadController::class, 'transition'])
+            ->name('leads.transition');
+        
+        Route::post('leads/{lead}/restore', [LeadController::class, 'restore'])
+            ->name('leads.restore');
+        
+        // Standard resource routes (must be last for leads)
         Route::apiResource('leads', LeadController::class);
 
-        // Lead documents
+        // ========================================================================
+        // LEAD DOCUMENTS
+        // ========================================================================
         Route::prefix('leads/{lead}')->group(function () {
-            Route::post('documents', [LeadDocumentController::class, 'store'])->name('leads.documents.store');
-            Route::get('documents', [LeadDocumentController::class, 'index'])->name('leads.documents.index');
+            Route::post('documents', [LeadDocumentController::class, 'store'])
+                ->name('leads.documents.store');
+            Route::get('documents', [LeadDocumentController::class, 'index'])
+                ->name('leads.documents.index');
         });
 
         Route::prefix('documents')->group(function () {
-            Route::get('{document}', [LeadDocumentController::class, 'show'])->name('documents.show');
-            Route::delete('{document}', [LeadDocumentController::class, 'destroy'])->name('documents.destroy');
-            Route::get('{document}/download', [LeadDocumentController::class, 'download'])->name('documents.download');
+            Route::get('{document}', [LeadDocumentController::class, 'show'])
+                ->name('documents.show');
+            Route::delete('{document}', [LeadDocumentController::class, 'destroy'])
+                ->name('documents.destroy');
+            Route::get('{document}/download', [LeadDocumentController::class, 'download'])
+                ->name('documents.download');
         });
 
-        // Lead questions
-        Route::apiResource('questions', LeadQuestionController::class)->except(['create', 'edit']);
+        // ========================================================================
+        // LEAD QUESTIONS
+        // ========================================================================
+        Route::apiResource('questions', LeadQuestionController::class)
+            ->except(['create', 'edit']);
 
-        // Pipeline Manage
-        Route::get('pipelines', [PipelineController::class, 'index']);
-        Route::put('leads/{lead}/move', [PipelineController::class, 'move'])->name('leads.move');
-        Route::get('pipelines/{stage}/leads', [PipelineController::class, 'getLeads'])->name('pipelines.leads');
+        // ========================================================================
+        // PIPELINE MANAGEMENT
+        // ========================================================================
+        Route::get('pipelines', [PipelineController::class, 'index'])
+            ->name('pipelines.index');
+        
+        Route::put('leads/{lead}/move', [PipelineController::class, 'move'])
+            ->name('leads.move');
+        
+        Route::get('pipelines/{stage}/leads', [PipelineController::class, 'getLeads'])
+            ->name('pipelines.leads');
 
-        // Opportunities
+        // ========================================================================
+        // OPPORTUNITIES
+        // ========================================================================
+        // Custom opportunity routes first (if any exist)
+        // Route::get('opportunities/statistics', [OpportunityController::class, 'statistics']);
+        
         Route::apiResource('opportunities', OpportunityController::class);
 
-        // Projects & Tasks        
+        // ========================================================================
+        // PROJECTS & TASKS
+        // ========================================================================
+        // Custom project routes first (if any exist)
+        // Route::get('projects/statistics', [ProjectController::class, 'statistics']);
+        
+        Route::apiResource('projects', ProjectController::class);
+        
         Route::prefix('projects/{project}')->group(function () {
             Route::get('tasks', [TaskController::class, 'index'])
                 ->name('projects.tasks.index');
         });
-        Route::apiResource('projects', ProjectController::class);
+        
+        // Custom task routes first (if any exist)
+        // Route::get('tasks/statistics', [TaskController::class, 'statistics']);
         
         Route::apiResource('tasks', TaskController::class);
 
-        // Proposals
+        // ========================================================================
+        // PROPOSALS
+        // ========================================================================
+        // Custom routes BEFORE resource
         Route::post('proposals/generate', [ProposalController::class, 'generate'])
             ->name('proposals.generate');
+        
         Route::apiResource('proposals', ProposalController::class)
             ->except(['create', 'edit']);
 
-        // AI Services
+        // ========================================================================
+        // AI SERVICES
+        // ========================================================================
         Route::prefix('ai')->group(function () {
-            Route::post('generate', [\App\Http\Controllers\Api\V1\AiController::class, 'generateContent'])
+            Route::post('generate', [AiController::class, 'generateContent'])
                 ->name('ai.generate');
-            Route::post('follow-up', [\App\Http\Controllers\Api\V1\AiController::class, 'followUp'])
+            
+            Route::post('follow-up', [AiController::class, 'followUp'])
                 ->name('ai.follow-up');
-            Route::post('extract-document', [\App\Http\Controllers\Api\V1\AiController::class, 'extractDocument'])
+            
+            Route::post('extract-document', [AiController::class, 'extractDocument'])
                 ->name('ai.extract-document');
         });
 
-        // File Uploads
-        Route::post('upload', [\App\Http\Controllers\Api\V1\UploadController::class, 'upload'])
+        // ========================================================================
+        // FILE UPLOADS
+        // ========================================================================
+        Route::post('upload', [UploadController::class, 'upload'])
             ->name('upload');
-        Route::post('upload/lead-document', [\App\Http\Controllers\Api\V1\UploadController::class, 'uploadLeadDocument'])
+        
+        Route::post('upload/lead-document', [UploadController::class, 'uploadLeadDocument'])
             ->name('upload.lead-document');
 
-        // Dashboard Metrics
+        // ========================================================================
+        // DASHBOARD METRICS
+        // ========================================================================
         Route::get('dashboard/metrics', [DashboardController::class, 'metrics'])
             ->name('dashboard.metrics');
     });
