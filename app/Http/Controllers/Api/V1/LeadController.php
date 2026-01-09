@@ -16,9 +16,11 @@ class LeadController extends Controller
     public function __construct(
         protected LeadService $leadService,
         protected LeadStatusService $leadStatusService
-    ) {
-    }
+    ) {}
 
+    /**
+     * Get paginated list of leads with filters
+     */
     public function index(Request $request): JsonResponse
     {
         $this->authorize('viewAny', Lead::class);
@@ -102,11 +104,107 @@ class LeadController extends Controller
     {
         $this->authorize('viewAny', Lead::class);
 
-        $statistics = $this->leadService->getStatistics();
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total' => Lead::count(),
+                'by_status' => $this->leadService->getStatusCounts(),
+                'by_stage' => $this->leadService->getStageCounts(),
+                'new_this_week' => Lead::where('created_at', '>=', now()->subWeek())->count(),
+                'new_this_month' => Lead::where('created_at', '>=', now()->subMonth())->count(),
+            ]
+        ]);
+    }
+
+    /**
+     * Restore a soft-deleted lead
+     */
+    public function restore(int $id): JsonResponse
+    {
+        $lead = Lead::withTrashed()->findOrFail($id);
+        
+        $this->authorize('restore', $lead);
+
+        $this->leadService->restore($lead);
 
         return response()->json([
             'success' => true,
-            'data' => $statistics,
+            'message' => 'Lead restored successfully',
+            'data' => $lead->refresh(),
+        ]);
+    }
+
+    /**
+     * Bulk create leads
+     */
+    public function bulkStore(Request $request): JsonResponse
+    {
+        $this->authorize('create', Lead::class);
+
+        $validated = $request->validate([
+            'leads' => 'required|array|min:1|max:100',
+            'leads.*.title' => 'required|string|max:255',
+            'leads.*.description' => 'nullable|string',
+            'leads.*.type' => 'required|in:document,conversation',
+            'leads.*.pipeline_stage_id' => 'nullable|exists:pipeline_stages,id',
+        ]);
+
+        $leads = $this->leadService->bulkCreate($validated['leads']);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully created {$leads->count()} leads",
+            'data' => $leads,
+        ], 201);
+    }
+
+    /**
+     * Bulk update leads
+     */
+    public function bulkUpdate(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'updates' => 'required|array|min:1|max:100',
+            'updates.*.id' => 'required|exists:leads,id',
+            'updates.*.data' => 'required|array',
+        ]);
+
+        // Authorize each lead for update
+        foreach ($validated['updates'] as $update) {
+            $lead = Lead::findOrFail($update['id']);
+            $this->authorize('update', $lead);
+        }
+
+        $leads = $this->leadService->bulkUpdate($validated['updates']);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully updated {$leads->count()} leads",
+            'data' => $leads,
+        ]);
+    }
+
+    /**
+     * Bulk delete leads
+     */
+    public function bulkDestroy(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'ids' => 'required|array|min:1|max:100',
+            'ids.*' => 'required|exists:leads,id',
+        ]);
+
+        // Authorize each lead for deletion
+        foreach ($validated['ids'] as $leadId) {
+            $lead = Lead::findOrFail($leadId);
+            $this->authorize('delete', $lead);
+        }
+
+        $count = $this->leadService->bulkDelete($validated['ids']);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully deleted {$count} leads",
         ]);
     }
 

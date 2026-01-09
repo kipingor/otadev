@@ -11,8 +11,8 @@ use App\Events\LeadDeleted;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Auth;
 
 class LeadService
 {
@@ -52,7 +52,16 @@ class LeadService
     }
 
     /**
-     * Create a new lead
+     * Create a new lead with proper event dispatching
+     *
+     * This method ensures:
+     * 1. Default values are set appropriately
+     * 2. Transaction safety for data consistency
+     * 3. LeadCreated event is dispatched for listeners
+     * 4. Relationships are eager loaded for performance
+     *
+     * @param array $data Lead attributes
+     * @return Lead The created lead with loaded relationships
      */
     public function create(array $data): Lead
     {
@@ -64,41 +73,67 @@ class LeadService
 
             // Set created_by to current user if not provided
             if (!isset($data['created_by'])) {
-                $data['created_by'] = auth()->user();
+                $data['created_by'] = Auth::id();
             }
 
             // Set owner_id to current user if not provided
             if (!isset($data['owner_id'])) {
-                $data['owner_id'] = auth()->user();
+                $data['owner_id'] = Auth::id();
             }
 
+            // Set default pipeline_stage_id if not provided
+            if (!isset($data['pipeline_stage_id'])) {
+                // Get the first intake stage as default
+                $defaultStage = \App\Models\PipelineStage::where('type', 'intake')
+                    ->orderBy('order')
+                    ->first();
+                
+                if ($defaultStage) {
+                    $data['pipeline_stage_id'] = $defaultStage->id;
+                }
+            }
+
+            // Create the lead
             $lead = Lead::create($data);
 
+            // Dispatch event for listeners (notifications, logging, etc.)
             event(new LeadCreated($lead));
 
+            // Return with relationships loaded
             return $lead->load(['owner', 'pipelineStage', 'user']);
         });
     }
 
     /**
-     * Update an existing lead
+     * Update an existing lead with proper event dispatching
+     * 
+     * @param Lead $lead The lead to update
+     * @param array $data Updated attributes
+     * @return Lead The updated lead with refreshed relationships
      */
     public function update(Lead $lead, array $data): Lead
     {
         return DB::transaction(function () use ($lead, $data) {
+            // Store original data for event
             $originalData = $lead->toArray();
 
+            // Update the lead
             $lead->fill($data);
             $lead->save();
 
+            // Dispatch update event
             event(new LeadUpdated($lead, $originalData));
 
+            // Return with refreshed relationships
             return $lead->refresh()->load(['owner', 'pipelineStage', 'user']);
         });
     }
 
     /**
-     * Soft delete a lead
+     * Soft delete a lead with proper event dispatching
+     * 
+     * @param Lead $lead The lead to delete
+     * @return bool True if deletion was successful
      */
     public function delete(Lead $lead): bool
     {
@@ -115,6 +150,9 @@ class LeadService
 
     /**
      * Restore a soft-deleted lead
+     * 
+     * @param Lead $lead The lead to restore
+     * @return bool True if restoration was successful
      */
     public function restore(Lead $lead): bool
     {
@@ -122,11 +160,142 @@ class LeadService
     }
 
     /**
-     * Get leads by owner
+     * Force delete a lead (permanent deletion)
+     * 
+     * @param Lead $lead The lead to permanently delete
+     * @return bool True if deletion was successful
      */
-    public function getByOwner(User $user, int $perPage = 15): LengthAwarePaginator
+    public function forceDelete(Lead $lead): bool
     {
-        return $this->list(['owner_id' => $user->id], $perPage);
+        return $lead->forceDelete();
+    }
+
+    /**
+     * Get a single lead by ID with relationships
+     * 
+     * @param int $id Lead ID
+     * @return Lead|null
+     */
+    public function find(int $id): ?Lead
+    {
+        return Lead::with(['owner', 'pipelineStage', 'user'])->find($id);
+    }
+
+    /**
+     * Get a single lead by ID or fail
+     * 
+     * @param int $id Lead ID
+     * @return Lead
+     * @throws \Illuminate\Database\Eloquent\ModelNotFoundException
+     */
+    public function findOrFail(int $id): Lead
+    {
+        return Lead::with(['owner', 'pipelineStage', 'user'])->findOrFail($id);
+    }
+
+    /**
+     * Get all leads for a specific user
+     * 
+     * @param User|int $user User instance or ID
+     * @return Collection
+     */
+    public function getByOwner(User $user): Collection
+    {
+        $userId = $user instanceof User ? $user->id : $user;
+
+        return Lead::where('owner_id', $userId)
+            ->with(['owner', 'pipelineStage', 'user'])
+            ->latest()
+            ->get();
+    }
+
+    /**
+     * Get leads count grouped by status
+     * 
+     * @return array
+     */
+    public function getStatusCounts(): array
+    {
+        return Lead::selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->toArray();
+    }
+
+    /**
+     * Get leads count grouped by pipeline stage
+     * 
+     * @return array
+     */
+    public function getStageCounts(): array
+    {
+        return Lead::selectRaw('pipeline_stage_id, COUNT(*) as count')
+            ->groupBy('pipeline_stage_id')
+            ->with('pipelineStage')
+            ->get()
+            ->pluck('count', 'pipelineStage.name')
+            ->toArray();
+    }
+
+    /**
+     * Bulk create leads
+     * 
+     * @param array $leadsData Array of lead data
+     * @return Collection Collection of created leads
+     */
+    public function bulkCreate(array $leadsData): Collection
+    {
+        return DB::transaction(function () use ($leadsData) {
+            $leads = collect();
+
+            foreach ($leadsData as $data) {
+                $leads->push($this->create($data));
+            }
+
+            return $leads;
+        });
+    }
+
+    /**
+     * Bulk update leads
+     * 
+     * @param array $updates Array of ['id' => leadId, 'data' => updateData]
+     * @return Collection Collection of updated leads
+     */
+    public function bulkUpdate(array $updates): Collection
+    {
+        return DB::transaction(function () use ($updates) {
+            $leads = collect();
+
+            foreach ($updates as $update) {
+                $lead = Lead::findOrFail($update['id']);
+                $leads->push($this->update($lead, $update['data']));
+            }
+
+            return $leads;
+        });
+    }
+
+    /**
+     * Bulk delete leads
+     * 
+     * @param array $leadIds Array of lead IDs to delete
+     * @return int Number of leads deleted
+     */
+    public function bulkDelete(array $leadIds): int
+    {
+        return DB::transaction(function () use ($leadIds) {
+            $count = 0;
+
+            foreach ($leadIds as $leadId) {
+                $lead = Lead::find($leadId);
+                if ($lead && $this->delete($lead)) {
+                    $count++;
+                }
+            }
+
+            return $count;
+        });
     }
 
     /**

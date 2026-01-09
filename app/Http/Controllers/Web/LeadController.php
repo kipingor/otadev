@@ -34,6 +34,8 @@ class LeadController extends Controller
         return Inertia::render('leads/index', [
             'leads' => $leads,
             'filters' => request()->only(['owner_id', 'pipeline_stage_id', 'status', 'search', 'per_page']),
+            'pipelineStages' => PipelineStage::orderBy('order')->get(),
+            'users' => User::select('id', 'name')->get(),
         ]);
     }
 
@@ -42,7 +44,7 @@ class LeadController extends Controller
         $this->authorize('create', Lead::class);
 
         return Inertia::render('leads/create', [
-            'pipelineStages' => PipelineStage::all(),
+            'pipelineStages' => PipelineStage::orderBy('order')->get(),
             'users' => User::select('id', 'name', 'email')->get(),
         ]);
     }
@@ -85,7 +87,7 @@ class LeadController extends Controller
 
         return Inertia::render('leads/edit', [
             'lead' => $lead->load(['owner', 'pipelineStage']),
-            'pipelineStages' => PipelineStage::all(),
+            'pipelineStages' => PipelineStage::orderBy('order')->get(),
             'users' => User::select('id', 'name', 'email')->get(),
         ]);
     }
@@ -101,10 +103,26 @@ class LeadController extends Controller
     {
         $this->authorize('delete', $lead);
 
-        $lead->delete();
+        $this->leadService->delete($lead);
 
         return redirect()
             ->route('leads.index')
             ->with('success', 'Lead deleted.');
+    }
+
+    /**
+     * Restore a soft-deleted lead
+     */
+    public function restore(int $id): RedirectResponse
+    {
+        $lead = Lead::withTrashed()->findOrFail($id);
+        
+        $this->authorize('restore', $lead);
+
+        $this->leadService->restore($lead);
+
+        return redirect()
+            ->route('leads.show', $lead)
+            ->with('success', 'Lead restored successfully.');
     }
 }
