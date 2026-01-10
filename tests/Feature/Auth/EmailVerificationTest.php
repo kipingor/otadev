@@ -81,7 +81,7 @@ class EmailVerificationTest extends TestCase
 
         $response = $this->actingAs($user)->get(route('verification.notice'));
 
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response->assertRedirect(route('web.dashboard', absolute: false));
     }
 
     public function test_already_verified_user_visiting_verification_link_is_redirected_without_firing_event_again(): void

@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use App\Services\DashboardMetricsService;
+use App\Services\Dashboard\DashboardMetricsService;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 
@@ -24,7 +24,7 @@ class DashboardController extends Controller
                 'opportunity_pipeline' => $this->metricsService->getOpportunityPipeline(),
                 'revenue_over_time' => $this->metricsService->getRevenueOverTime(6),
                 'task_completion' => $this->metricsService->getTaskCompletionRate(),
-                'recent_activity' => $this->metricsService->getRecentActivity(10),
+                'recent_activity' => $this->metricsService->getRecentActivities(20),
             ]
         ];
 
