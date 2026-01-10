@@ -58,4 +58,9 @@ class User extends Authenticatable
         return $this->hasMany(TimeLog::class);
     }
 
+    public function ownedLeads()
+    {
+        return $this->hasMany(Lead::class, 'owner_id');
+    }
+
 }

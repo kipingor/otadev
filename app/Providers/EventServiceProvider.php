@@ -6,11 +6,14 @@ use Illuminate\Foundation\Support\Providers\EventServiceProvider as ServiceProvi
 use App\Events\LeadCreated;
 use App\Events\LeadUpdated;
 use App\Events\LeadDeleted;
+use App\Events\LeadMoved;
 use App\Events\LeadStatusChanged;
 use App\Events\LeadDocumentUploaded;
 use App\Listeners\Lead\LogLeadActivity;
 use App\Listeners\Dashboard\InvalidateDashboardCache;
 use App\Listeners\Lead\UpdateLeadMetrics;
+use App\Listeners\Lead\SendLeadNotification;
+use App\Listeners\Lead\ProcessLeadWithAI;
 use App\Listeners\Document\ProcessDocumentWithAI;
 
 class EventServiceProvider extends ServiceProvider
@@ -19,11 +22,14 @@ class EventServiceProvider extends ServiceProvider
         LeadCreated::class => [
             LogLeadActivity::class . '@handleCreated',
             UpdateLeadMetrics::class . '@handleCreated',
+            SendLeadNotification::class . '@handleCreated',
+            ProcessLeadWithAI::class,
             InvalidateDashboardCache::class,
         ],
         
         LeadUpdated::class => [
             LogLeadActivity::class . '@handleUpdated',
+            SendLeadNotification::class . '@handleUpdated',
             InvalidateDashboardCache::class,
         ],
         
@@ -49,5 +55,13 @@ class EventServiceProvider extends ServiceProvider
     public function boot(): void
     {
         //
+    }
+
+    /**
+     * Determine if events and listeners should be automatically discovered.
+     */
+    public function shouldDiscoverEvents(): bool
+    {
+        return false;
     }
 }

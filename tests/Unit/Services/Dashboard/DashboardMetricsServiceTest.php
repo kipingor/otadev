@@ -31,7 +31,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_calculates_average_response_time()
+    public function test_it_calculates_average_response_time()
     {
         // Create leads with contacted_at timestamps
         Lead::factory()->create([
@@ -51,7 +51,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_returns_zero_when_no_contacted_leads()
+    public function test_it_returns_zero_when_no_contacted_leads()
     {
         Lead::factory()->count(5)->create(['contacted_at' => null]);
 
@@ -61,7 +61,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_calculates_win_rate()
+    public function test_it_calculates_win_rate()
     {
         // Create 10 won leads
         Lead::factory()->count(10)->create(['status' => 'won']);
@@ -79,7 +79,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_returns_zero_win_rate_when_no_closed_leads()
+    public function test_it_returns_zero_win_rate_when_no_closed_leads()
     {
         Lead::factory()->count(10)->create(['status' => 'new']);
 
@@ -89,7 +89,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_gets_activity_metrics_for_week()
+    public function test_it_gets_activity_metrics_for_week()
     {
         // Create data within the week
         Lead::factory()->count(5)->create(['created_at' => now()->subDays(3)]);
@@ -109,7 +109,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_gets_top_performers()
+    public function test_it_gets_top_performers()
     {
         $user1 = User::factory()->create(['name' => 'Top Seller']);
         $user2 = User::factory()->create(['name' => 'Average Seller']);
@@ -152,7 +152,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_gets_leads_over_time()
+    public function test_it_gets_leads_over_time()
     {
         // Create leads on different days
         Lead::factory()->count(5)->create(['created_at' => now()->subDays(1)]);
@@ -172,25 +172,25 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_gets_revenue_over_time()
+    public function test_it_gets_revenue_over_time()
     {
         // Create won opportunities with revenue
         Opportunity::factory()->create([
-            'value' => 10000,
-            'status' => 'won',
+            'estimated_value' => 10000,
+            'stage' => 'won',
             'created_at' => now()->subDays(1),
         ]);
 
         Opportunity::factory()->create([
-            'value' => 25000,
-            'status' => 'won',
+            'estimated_value' => 25000,
+            'stage' => 'won',
             'created_at' => now()->subDays(2),
         ]);
 
         // Create lost opportunity (should not be counted)
         Opportunity::factory()->create([
-            'value' => 50000,
-            'status' => 'lost',
+            'estimated_value' => 50000,
+            'stage' => 'lost',
             'created_at' => now()->subDays(1),
         ]);
 
@@ -204,7 +204,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_gets_conversion_funnel_data()
+    public function test_it_gets_conversion_funnel_data()
     {
         // Create leads in different stages
         Lead::factory()->count(10)->create(['status' => 'new']);
@@ -226,7 +226,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_caches_metrics_by_default()
+    public function test_it_caches_metrics_by_default()
     {
         Cache::shouldReceive('remember')
             ->once()
@@ -238,7 +238,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_bypasses_cache_when_requested()
+    public function test_it_bypasses_cache_when_requested()
     {
         // Create some leads
         Lead::factory()->count(5)->create();
@@ -252,7 +252,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_clears_all_dashboard_caches()
+    public function test_it_clears_all_dashboard_caches()
     {
         Cache::shouldReceive('forget')
             ->times(7); // Number of cache patterns
@@ -261,7 +261,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_gets_leads_chart_data_with_metadata()
+    public function test_it_gets_leads_chart_data_with_metadata()
     {
         Lead::factory()->count(10)->create(['created_at' => now()->subDays(5)]);
 
@@ -277,7 +277,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_handles_different_time_periods()
+    public function test_it_handles_different_time_periods()
     {
         $periods = ['week', 'month', 'quarter', 'year'];
 
@@ -291,7 +291,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_excludes_performers_with_no_wins()
+    public function test_it_excludes_performers_with_no_wins()
     {
         $user = User::factory()->create();
         
@@ -307,7 +307,7 @@ class DashboardMetricsServiceTest extends TestCase
     }
 
     /** @test */
-    public function it_limits_top_performers_count()
+    public function test_it_limits_top_performers_count()
     {
         // Create 20 users with wins
         for ($i = 0; $i < 20; $i++) {

@@ -360,14 +360,14 @@ class LeadService
     public function getStatistics(): array
     {
         return Cache::remember('lead_statistics', 300, function () {
-            return [
+            return ([
                 'total' => Lead::count(),
                 'new' => Lead::where('status', LeadStatus::NEW->value)->count(),
                 'qualified' => Lead::where('status', LeadStatus::QUALIFIED->value)->count(),
                 'won' => Lead::where('status', LeadStatus::WON->value)->count(),
                 'lost' => Lead::where('status', LeadStatus::LOST->value)->count(),
                 'conversion_rate' => $this->calculateConversionRate(),
-            ];
+            ]);
         });
     }
 

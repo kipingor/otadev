@@ -24,7 +24,9 @@ return new class extends Migration
         Schema::create('leads', function (Blueprint $table) {
             $table->id();
             $table->string('title')->nullable();
-            $table->text('description')->nullable(); // user-provided description (conversational)
+            $table->text('description')->nullable();
+            $table->json('ai_analysis')->nullable();
+            $table->timestamp('ai_processed_at')->nullable();
             $table->enum('type', ['document', 'conversation'])->default('conversation');
             $table->string('status', 50)
                 ->default('new');
