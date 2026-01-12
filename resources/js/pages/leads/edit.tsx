@@ -1,12 +1,28 @@
 import AppLayout from '@/layouts/app-layout';
 import { PageHeader } from '@/components/ui/page-header';
 import { LeadForm } from '@/components/forms/lead-form';
-import { Head, useForm, usePage, router } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
+import { useState } from 'react';
+import { toast } from 'sonner';
 
-export default function LeadEdit({ lead }: { lead: any }) {
+export default function EditLead({ lead, users, pipelineStages }) {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
     const handleSubmit = (data) => {
-        router.put(`/leads/${lead.id}`, data);
-    }; 
+        setIsSubmitting(true);
+        
+        router.put(`/leads/${lead.id}`, data, {
+            onSuccess: () => {
+                toast.success('Lead updated successfully!');
+            },
+            onError: (errors) => {
+                toast.error('Failed to update lead');
+            },
+            onFinish: () => {
+                setIsSubmitting(false);
+            },
+        });
+    };
 
     return (
         <AppLayout>
@@ -21,9 +37,11 @@ export default function LeadEdit({ lead }: { lead: any }) {
 
             <div className="mt-6">
                 <LeadForm
-                    lead={lead}
+                    initialData={lead}
+                    users={users}
+                    pipelineStages={pipelineStages}
                     onSubmit={handleSubmit}
-                    submitLabel="Update Lead"
+                    isSubmitting={isSubmitting}
                 />
             </div>    
         </AppLayout>

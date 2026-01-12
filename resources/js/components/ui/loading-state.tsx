@@ -1,22 +1,46 @@
 import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Loader2 } from 'lucide-react';
 
 interface LoadingStateProps {
-    variant?: 'card' | 'table' | 'list' | 'form';
-    count?: number;
+    variant?: 'spinner' | 'skeleton' | 'card' | 'table';
+    text?: string;
     className?: string;
 }
 
-export function LoadingState({
-    variant = 'card',
-    count = 3,
-    className,
-}: LoadingStateProps) {
+export function LoadingState({ variant = 'spinner', text = 'Loading...', className = '' }: LoadingStateProps) {
+    if (variant === 'spinner') {
+        return (
+            <div className={`flex flex-col items-center justify-center py-12 ${className}`}>
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                {text && <p className="mt-2 text-sm text-muted-foreground">{text}</p>}
+            </div>
+        );
+    }
+
+    if (variant === 'skeleton') {
+        return (
+            <div className={`space-y-4 ${className}`}>
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+            </div>
+        );
+    }
+
     if (variant === 'card') {
         return (
-            <div className={cn('grid gap-6 md:grid-cols-2 lg:grid-cols-3', className)}>
-                {Array.from({ length: count }).map((_, i) => (
-                    <CardSkeleton key={i} />
+            <div className={`grid gap-4 md:grid-cols-2 lg:grid-cols-3 ${className}`}>
+                {[1, 2, 3].map((i) => (
+                    <Card key={i}>
+                        <CardHeader>
+                            <Skeleton className="h-6 w-3/4" />
+                            <Skeleton className="h-4 w-1/2" />
+                        </CardHeader>
+                        <CardContent>
+                            <Skeleton className="h-24 w-full" />
+                        </CardContent>
+                    </Card>
                 ))}
             </div>
         );
@@ -24,50 +48,14 @@ export function LoadingState({
 
     if (variant === 'table') {
         return (
-            <div className={cn('space-y-3', className)}>
-                {Array.from({ length: count }).map((_, i) => (
+            <div className={`space-y-2 ${className}`}>
+                <Skeleton className="h-10 w-full" />
+                {[1, 2, 3, 4, 5].map((i) => (
                     <Skeleton key={i} className="h-16 w-full" />
                 ))}
             </div>
         );
     }
 
-    if (variant === 'list') {
-        return (
-            <div className={cn('space-y-2', className)}>
-                {Array.from({ length: count }).map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
-                ))}
-            </div>
-        );
-    }
-
-    if (variant === 'form') {
-        return (
-            <div className={cn('space-y-4', className)}>
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-10 w-32" />
-            </div>
-        );
-    }
-
     return null;
-}
-
-function CardSkeleton() {
-    return (
-        <div className="rounded-lg border p-6 space-y-4">
-            <div className="space-y-2">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-            </div>
-            <Skeleton className="h-20 w-full" />
-            <div className="flex items-center justify-between">
-                <Skeleton className="h-8 w-24" />
-                <Skeleton className="h-8 w-24" />
-            </div>
-        </div>
-    );
 }

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
 use App\Services\Dashboard\DashboardMetricsService;
+use App\Models\Activity;
 use Inertia\Inertia;
 use Illuminate\Http\Request;
 
@@ -14,20 +15,14 @@ class DashboardController extends Controller
     ) {
     }
 
-    public function index(Request $request)
+    public function index()
     {
-        $data = [
-            'user' => $request->user(),
-            'metrics' => [
-                'overview' => $this->metricsService->getOverviewMetrics(),
-                'leads_over_time' => $this->metricsService->getLeadsOverTime(30),
-                'opportunity_pipeline' => $this->metricsService->getOpportunityPipeline(),
-                'revenue_over_time' => $this->metricsService->getRevenueOverTime(6),
-                'task_completion' => $this->metricsService->getTaskCompletionRate(),
-                'recent_activity' => $this->metricsService->getRecentActivities(20),
-            ]
-        ];
-
-        return Inertia::render('dashboard/index', compact('data'));
+        return Inertia::render('dashboard/index', [
+            'metrics' => $this->metricsService->getOverview(),
+            'recent_activities' => Activity::with('causer')
+                ->latest()
+                ->limit(10)
+                ->get(),
+        ]);
     }
 }

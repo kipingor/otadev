@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { LoadingState } from '@/components/ui/loading-state';
 import {
     Select,
     SelectContent,
@@ -7,6 +8,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+    Pagination,
+    PaginationContent,
+    PaginationEllipsis,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+  } from "@/components/ui/pagination";
 import AppLayout from '@/layouts/app-layout';
 import LeadCard from '@/pages/leads/lead-card';
 import { Lead, PaginatedData, Pipeline, User } from '@/types/models.types';
@@ -15,7 +25,7 @@ import { useCallback, useState } from 'react';
 import { route } from 'ziggy-js';
 
 interface Props {
-    leads: PaginatedData<Lead>;
+    leads: PaginatedData<Lead> & { loading: boolean };
     filters: {
         owner_id?: number;
         pipeline_stage_id?: number;
@@ -148,9 +158,13 @@ export default function LeadsIndex({
                     {/* Leads Grid */}
                     {leads.data.length > 0 ? (
                         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                            {leads.data.map((lead) => (
-                                <LeadCard key={lead.id} lead={lead} />
-                            ))}
+                            {leads.loading ? (
+                                <LoadingState variant="card" count={6} />
+                            ) : (
+                                leads.data.map((lead) => (
+                                    <LeadCard key={lead.id} lead={lead} />
+                                ))
+                            )}
                         </div>
                     ) : (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -169,6 +183,30 @@ export default function LeadsIndex({
                     {/* Pagination */}
                     {leads?.meta?.last_page > 1 && (
                         <div className="mt-6 flex items-center justify-center gap-2">
+                            <Pagination>
+    <PaginationContent>
+        <PaginationItem>
+            <PaginationPrevious href={prevUrl} />
+        </PaginationItem>
+        {/* Page numbers */}
+        <PaginationItem>
+            <PaginationNext href={nextUrl} />
+        </PaginationItem>
+    </PaginationContent>
+</Pagination>
+
+// Add items per page selector
+<Select value={perPage} onValueChange={setPerPage}>
+    <SelectTrigger>
+        <SelectValue />
+    </SelectTrigger>
+    <SelectContent>
+        <SelectItem value="10">10 per page</SelectItem>
+        <SelectItem value="25">25 per page</SelectItem>
+        <SelectItem value="50">50 per page</SelectItem>
+    </SelectContent>
+</Select>
+</Pagination>
                             {leads.links.map((link, index) => (
                                 <Button
                                     key={index}

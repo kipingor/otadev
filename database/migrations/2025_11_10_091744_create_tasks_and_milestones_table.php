@@ -47,6 +47,27 @@ return new class extends Migration
             $table->index(['milestone_id']);
             $table->index(['assigned_to']);
             $table->index(['status']);
+
+            // Foreign key indexes
+            $table->index('project_id', 'idx_tasks_project_id');
+            $table->index('assigned_to', 'idx_tasks_assigned_to');
+            $table->index('milestone_id', 'idx_tasks_milestone_id');
+            
+            // Status and priority filtering
+            $table->index('status', 'idx_tasks_status');
+            $table->index('priority', 'idx_tasks_priority');
+            
+            // Due date queries
+            $table->index('endAt', 'idx_tasks_endAt');
+            
+            // Overdue tasks: WHERE status != 'completed' AND endAt < NOW()
+            $table->index(['status', 'endAt'], 'idx_tasks_status_due');
+            
+            // User's tasks: WHERE assigned_to = ? AND status = ?
+            $table->index(['assigned_to', 'status'], 'idx_tasks_assigned_status');
+            
+            // Soft deletes
+            $table->index('deleted_at', 'idx_tasks_deleted_at');
         });
 
         // time logs for tasks (for tracking cost)

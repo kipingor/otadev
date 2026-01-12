@@ -13,16 +13,18 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth;
+use App\Traits\Cacheable;
 
 class LeadService
 {
+    use Cacheable;
+
     /**
      * Get paginated list of leads with filters
      */
     public function list(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
-        $query = Lead::query()
-            ->with(['owner', 'pipelineStage', 'user']);
+        $query = Lead::indexQuery();
 
         // Apply filters
         if (isset($filters['owner_id'])) {

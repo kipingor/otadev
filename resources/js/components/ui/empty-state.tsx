@@ -1,7 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
-import { type LucideIcon } from 'lucide-react';
+import { LucideIcon } from 'lucide-react';
 
 interface EmptyStateProps {
     icon?: LucideIcon;
@@ -10,7 +9,6 @@ interface EmptyStateProps {
     action?: {
         label: string;
         href: string;
-        onClick?: () => void;
     };
     className?: string;
 }
@@ -20,37 +18,24 @@ export function EmptyState({
     title,
     description,
     action,
-    className,
+    className = '',
 }: EmptyStateProps) {
     return (
-        <div
-            className={cn(
-                'flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center animate-in fade-in-50',
-                className,
-            )}
-        >
+        <div className={`flex flex-col items-center justify-center py-12 ${className}`}>
             {Icon && (
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-muted">
-                    <Icon className="h-10 w-10 text-muted-foreground" />
+                <div className="rounded-full bg-muted p-3 mb-4">
+                    <Icon className="h-8 w-8 text-muted-foreground" />
                 </div>
             )}
-            <h3 className="mt-4 text-lg font-semibold">{title}</h3>
+            <h3 className="text-lg font-semibold">{title}</h3>
             {description && (
-                <p className="mb-4 mt-2 text-sm text-muted-foreground max-w-sm">
+                <p className="mt-2 text-sm text-muted-foreground text-center max-w-sm">
                     {description}
                 </p>
             )}
             {action && (
-                <Button
-                    asChild={!!action.href}
-                    onClick={action.onClick}
-                    className="mt-4"
-                >
-                    {action.href ? (
-                        <Link href={action.href}>{action.label}</Link>
-                    ) : (
-                        <span>{action.label}</span>
-                    )}
+                <Button asChild className="mt-4">
+                    <Link href={action.href}>{action.label}</Link>
                 </Button>
             )}
         </div>

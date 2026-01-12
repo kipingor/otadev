@@ -21,6 +21,13 @@ class Lead extends Model
     use HasFactory, SoftDeletes;
 
     /**
+     * The relationships that should always be eager loaded.
+     *
+     * @var array
+     */
+    protected $with = [];
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>
@@ -318,5 +325,29 @@ class Lead extends Model
         // For now, return days since last status change
         $lastStatusChange = $this->updated_at;
         return $lastStatusChange->diffInDays(now());
+    }
+
+    /**
+     * Get the relationships that should be eager loaded on index queries.
+     */
+    public static function indexQuery()
+    {
+        return self::with(['owner:id,name,email', 'pipelineStage:id,name']);
+    }
+
+    /**
+     * Get the relationships that should be eager loaded on show queries.
+     */
+    public static function detailQuery()
+    {
+        return self::with([
+            'owner:id,name,email',
+            'user:id,name,email',
+            'pipelineStage:id,name',
+            'questions',
+            'leadDocuments',
+            'opportunity',
+            'proposals',
+        ]);
     }
 }

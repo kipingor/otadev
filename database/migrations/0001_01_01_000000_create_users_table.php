@@ -40,6 +40,21 @@ return new class extends Migration
             $table->rememberToken();
             $table->timestamps();
             $table->softDeletes();
+
+            // For authentication queries
+            $table->index('email_verified_at', 'idx_users_email_verified');
+            
+            // For active user queries
+            $table->index('created_at', 'idx_users_created_at');
+            $table->index('updated_at', 'idx_users_updated_at');
+            $table->index('deleted_at', 'idx_users_deleted_at');
+            $table->index('staff_profile_id', 'idx_users_staff_profile_id');
+            $table->index('locale', 'idx_users_locale');
+            $table->index('timezone', 'idx_users_timezone');
+            $table->index('remember_token', 'idx_users_remember_token');
+            $table->index('email', 'idx_users_email');
+            $table->index('name', 'idx_users_name');
+            $table->index('id', 'idx_users_id');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

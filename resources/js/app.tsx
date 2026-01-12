@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { Toaster } from 'sonner';
+import { Toaster } from '@/components/ui/toaster';
 import { initializeTheme } from './hooks/use-appearance';
 
 import initAuth from '@/lib/initAuth';
@@ -63,11 +63,9 @@ const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
                     <StrictMode>
                         <QueryClientProvider client={queryClient}>
                             <App {...props} />
-                            <Toaster
-                                position="top-right"
-                                richColors
-                                closeButton
-                            />
+                            {/* <Router> */}
+                                <Toaster />
+                            {/* </Router> */}
                         </QueryClientProvider>
                     </StrictMode>
                 );
