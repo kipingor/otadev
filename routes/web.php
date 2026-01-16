@@ -44,6 +44,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // Authenticated routes
 Route::middleware(['auth', 'verified'])->name('web.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    
+    // Optional: API endpoint for metrics
+    Route::get('/api/dashboard/metrics', [DashboardController::class, 'metrics'])
+        ->name('dashboard.metrics');
+    
+    // Optional: Clear cache
+    Route::post('/api/dashboard/clear-cache', [DashboardController::class, 'clearCache'])
+        ->name('dashboard.clear-cache');
 
     // routes/domain/opportunities.
     Route::resource('opportunities', OpportunityController::class);

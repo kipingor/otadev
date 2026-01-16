@@ -16,7 +16,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
-import { StatusBadge } from '@/components/ui/status-badge';
+import { LeadStatusBadge } from '@/components/ui/status-badge';
 import { Textarea } from '@/components/ui/textarea';
 import { LeadStatus } from '@/types/models';
 import { Lead } from '@/types/models.types';
@@ -125,7 +125,7 @@ export function LeadStatusTransition({ lead, onUpdate }: LeadStatusTransitionPro
     };
 
     if (validTransitions.length === 0) {
-        return <StatusBadge status={lead.status} />;
+        return <LeadStatusBadge status={lead.status} />;
     }
 
     return (
@@ -133,7 +133,7 @@ export function LeadStatusTransition({ lead, onUpdate }: LeadStatusTransitionPro
             <DropdownMenu open={open} onOpenChange={setOpen}>
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="gap-2">
-                        <StatusBadge status={lead.status} showIcon={false} />
+                        <LeadStatusBadge status={lead.status} showIcon={false} />
                         <ChevronDown className="h-4 w-4" />
                     </Button>
                 </DropdownMenuTrigger>
@@ -146,7 +146,7 @@ export function LeadStatusTransition({ lead, onUpdate }: LeadStatusTransitionPro
                             onClick={() => handleStatusSelect(status)}
                             disabled={isSubmitting}
                         >
-                            <StatusBadge status={status} />
+                            <LeadStatusBadge status={status} />
                         </DropdownMenuItem>
                     ))}
                 </DropdownMenuContent>

@@ -80,13 +80,12 @@ class DatabaseSeeder extends Seeder
         // 3. Create Pipeline Stages
         // ---------------------------
         $defaultStages = [
-            ['key' => 'new', 'name' => 'New', 'order' => 0],
-            ['key' => 'contacted', 'name' => 'Contacted', 'order' => 1],
-            ['key' => 'qualified', 'name' => 'Qualified', 'order' => 2],
-            ['key' => 'opportunity', 'name' => 'Opportunity', 'order' => 3],
-            ['key' => 'proposal_sent', 'name' => 'Proposal Sent', 'order' => 4],
-            ['key' => 'won', 'name' => 'Won', 'order' => 5],
-            ['key' => 'lost', 'name' => 'Lost', 'order' => 6],
+            ['key' => 'intake', 'name' => 'Intake', 'order' => 0],
+            ['key' => 'discovery', 'name' => 'Discovery', 'order' => 1],
+            ['key' => 'proposal', 'name' => 'Proposal', 'order' => 2],
+            ['key' => 'negotiation', 'name' => 'Negotiation', 'order' => 3],
+            ['key' => 'closed_won', 'name' => 'Closed Won', 'order' => 4],
+            ['key' => 'closed_lost', 'name' => 'Closed Lost', 'order' => 5],
         ];
         $pipelineStages = collect($defaultStages)->map(function ($stage) {
             return PipelineStage::firstOrCreate(

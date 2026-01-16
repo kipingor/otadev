@@ -6,37 +6,15 @@ import {
     CardHeader, 
     CardTitle 
 } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Lead } from '@/types/models.types';
 import { formatDistanceToNow } from 'date-fns';
+import { LeadStatusBadge } from '@/components/ui/status-badge';
 import { route } from 'ziggy-js';
 
 interface LeadCardProps {
     lead: Lead;
 }
-
-const statusColors = {
-    new: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-    contacted: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200',
-    qualified: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-    proposal_sent: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
-    negotiation: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
-    won: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200',
-    lost: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
-    archived: 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200',
-};
-
-const statusLabels = {
-    new: 'New',
-    contacted: 'Contacted',
-    qualified: 'Qualified',
-    proposal_sent: 'Proposal Sent',
-    negotiation: 'Negotiation',
-    won: 'Won',
-    lost: 'Lost',
-    archived: 'Archived',
-};
 
 export default function LeadCard({ lead }: LeadCardProps) {
     const getInitials = (name: string) => {
@@ -49,19 +27,14 @@ export default function LeadCard({ lead }: LeadCardProps) {
     };
 
     return (
-        <Link href={`leads/${lead.id}`}>
-            <Card className="transition-all hover:shadow-lg cursor-pointer h-full">
+        <Link href={route('leads.show', lead.id)}>
+            <Card className="transition-all hover:shadow-lg hover:border-primary/50 cursor-pointer h-full group">
                 <CardHeader>
                     <div className="flex items-start justify-between gap-2">
-                        <CardTitle className="text-lg line-clamp-1">
+                        <CardTitle className="text-lg line-clamp-1 group-hover:text-primary transition-colors">
                             {lead.title}
                         </CardTitle>
-                        <Badge 
-                            variant="secondary"
-                            className={statusColors[lead.status]}
-                        >
-                            {statusLabels[lead.status]}
-                        </Badge>
+                        <LeadStatusBadge status={lead.status} />
                     </div>
                     
                     {lead.description && (
@@ -77,6 +50,7 @@ export default function LeadCard({ lead }: LeadCardProps) {
                         {lead.owner && (
                             <div className="flex items-center gap-2">
                                 <Avatar className="h-6 w-6">
+                                    <AvatarImage src={lead.owner.avatar} alt={lead.owner.name} />
                                     <AvatarFallback className="text-xs">
                                         {getInitials(lead.owner.name)}
                                     </AvatarFallback>

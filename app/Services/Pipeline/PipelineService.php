@@ -149,7 +149,7 @@ class PipelineService
      */
     private function calculateConversionRate(): float
     {
-        $wonStage = PipelineStage::where('type', 'closed_won')->first();
+        $wonStage = PipelineStage::where('name', 'closed_won')->first();
         
         if (!$wonStage) {
             return 0;
@@ -166,7 +166,7 @@ class PipelineService
      */
     private function calculateAverageTimeInPipeline(): float
     {
-        $wonStage = PipelineStage::where('type', 'closed_won')->first();
+        $wonStage = PipelineStage::where('name', 'closed_won')->first();
         
         if (!$wonStage) {
             return 0;

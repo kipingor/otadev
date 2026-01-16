@@ -1,24 +1,52 @@
 import AppLayout from '@/layouts/app-layout';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import { type BreadcrumbItem } from '@/types';
 import { useState } from 'react';
 import LeadDocumentUploader from '@/pages/leads/lead-document-uploader';
 import { useLeadDocumentsRealtime } from '@/hooks/use-lead-documents-realtime';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, FileText, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Loader2, FileText, Clock, CheckCircle2, AlertCircle, Edit, ArrowLeft, Download } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page-header';
+import { LeadStatusBadge } from '@/components/ui/status-badge';
+import { route } from 'ziggy-js';
 
+interface LeadDocument {
+    id: number;
+    filename: string;
+    original_name: string;
+    status: string;
+    ai_summary?: {
+        summary?: string;
+        key_points?: string[];
+    };
+    created_at: string;
+    file_url?: string;
+}
+
+interface Lead {
+    id: number;
+    title: string;
+    description?: string;
+    status: string;
+    metadata?: Record<string, any>;
+    leadDocuments?: LeadDocument[];
+    questions?: Array<{ id: number; question: string }>;
+    owner?: { name: string };
+    created_at: string;
+}
 
 export default function LeadShow() {
-    const { props } = usePage<any>();
+    const { props } = usePage<{ lead: Lead }>();
     const lead = props.lead;
 
     const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Leads', href: '/leads' },
-        { title: lead?.title ?? 'Lead', href: `/leads/${lead?.id}` },
+        { title: 'Leads', href: route('leads.index') },
+        { title: lead?.title ?? 'Lead', href: route('leads.show', lead?.id) },
     ];
 
-    const [documents, setDocuments] = useState<any[]>(lead?.leadDocuments ?? []);
+    const [documents, setDocuments] = useState<LeadDocument[]>(lead?.leadDocuments ?? []);
     const [uploading, setUploading] = useState(false);
 
     const getStatusVariant = (status: string | undefined): 'default' | 'secondary' | 'destructive' | 'outline' => {
@@ -52,16 +80,25 @@ export default function LeadShow() {
     };
 
     useLeadDocumentsRealtime(lead?.id, (event: any) => {
-        // event contains document_id, lead_id, status, ai_summary
         setDocuments((prev) => {
             const idx = prev.findIndex((d) => d.id === event.document_id);
             if (idx !== -1) {
                 const copy = [...prev];
-                copy[idx] = { ...copy[idx], status: event.status, ai_summary: event.ai_summary };
+                copy[idx] = { 
+                    ...copy[idx], 
+                    status: event.status, 
+                    ai_summary: event.ai_summary 
+                };
                 return copy;
             }
-            // not found, append
-            return [...prev, { id: event.document_id, status: event.status, ai_summary: event.ai_summary }];
+            return [...prev, { 
+                id: event.document_id, 
+                status: event.status, 
+                ai_summary: event.ai_summary,
+                filename: '',
+                original_name: '',
+                created_at: new Date().toISOString(),
+            }];
         });
     });
 
@@ -69,131 +106,196 @@ export default function LeadShow() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={lead?.title ?? 'Lead'} />
 
-            <div className='flex h-full flex-1 flex-col gap-8 p-6'>
-                <div className="space-y-6">
-                    {/* Lead Header */}
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">{lead?.title}</h1>
-                        {lead?.description && (
-                            <p className="text-muted-foreground mt-2">{lead?.description}</p>
-                        )}
-                    </div>
+            <div className='flex h-full flex-1 flex-col gap-6 p-6'>
+                {/* Lead Header */}
+                <PageHeader
+                    title={lead?.title ?? 'Lead'}
+                    description={lead?.description}
+                    backButton={{
+                        label: 'Back to Leads',
+                        href: route('leads.index'),
+                    }}
+                    actions={[
+                        {
+                            label: 'Edit Lead',
+                            href: route('leads.edit', lead?.id),
+                            icon: Edit,
+                            variant: 'outline',
+                        },
+                    ]}
+                />
 
-                    {/* AI Summary Section */}
-                    {lead?.metadata && Object.keys(lead?.metadata).length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="text-lg">AI Summary</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <pre className="bg-muted p-4 rounded-md text-sm overflow-auto max-h-48 whitespace-pre-wrap break-words">
-                                    {JSON.stringify(lead?.metadata, null, 2)}
-                                </pre>
-                            </CardContent>
-                        </Card>
-                    )}
+                {/* Lead Info Card */}
+                <Card>
+                    <CardHeader>
+                        <div className="flex items-start justify-between">
+                            <div className="space-y-1">
+                                <CardTitle>Lead Information</CardTitle>
+                                <CardDescription>
+                                    Created {new Date(lead?.created_at).toLocaleDateString()}
+                                </CardDescription>
+                            </div>
+                            <LeadStatusBadge status={lead?.status} size="lg" />
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid gap-4 md:grid-cols-2">
+                            {lead?.owner && (
+                                <div>
+                                    <div className="text-sm font-medium text-muted-foreground">Owner</div>
+                                    <div className="mt-1">{lead.owner.name}</div>
+                                </div>
+                            )}
+                            <div>
+                                <div className="text-sm font-medium text-muted-foreground">Status</div>
+                                <div className="mt-1 capitalize">{lead?.status?.replace(/_/g, ' ')}</div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
 
-                    {/* Documents Section */}
+                {/* AI Summary Section */}
+                {lead?.metadata && Object.keys(lead?.metadata).length > 0 && (
                     <Card>
                         <CardHeader>
-                            <CardTitle>Documents</CardTitle>
+                            <CardTitle className="text-lg">AI-Generated Summary</CardTitle>
                             <CardDescription>
-                                {documents.length === 0
-                                    ? 'No documents uploaded yet'
-                                    : `${documents.length} document${documents.length !== 1 ? 's' : ''} uploaded`}
+                                Automatically extracted information and insights
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            {/* Document List */}
-                            {documents.length > 0 && (
-                                <div className="space-y-3">
-                                    {documents.map((d) => (
-                                        <div
-                                            key={d.id}
-                                            className="flex items-start justify-between gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50"
-                                        >
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                                    <h4 className="font-medium truncate">
-                                                        {d.original_name ?? d.filename ?? `Document ${d.id}`}
-                                                    </h4>
-                                                </div>
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                    {d.created_at
-                                                        ? new Date(d.created_at).toLocaleString()
-                                                        : 'Recently uploaded'}
-                                                </p>
-                                            </div>
-                                            <div className="flex items-center gap-2 flex-shrink-0">
-                                                <Badge>{d.status}</Badge>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {/* AI Summary for Each Document */}
-                            {documents.some((d) => d.ai_summary?.summary) && (
-                                <div className="space-y-4 mt-6 pt-6 border-t">
-                                    {documents
-                                        .filter((d) => d.ai_summary?.summary)
-                                        .map((d) => (
-                                            <div key={d.id} className="space-y-2">
-                                                <h5 className="font-medium text-sm">
-                                                    AI Summary: {d.original_name ?? d.filename ?? `Document ${d.id}`}
-                                                </h5>
-                                                <pre className="bg-muted p-3 rounded text-xs overflow-auto max-h-40 whitespace-pre-wrap break-words">
-                                                    {d.ai_summary.summary}
-                                                </pre>
-                                            </div>
-                                        ))}
-                                </div>
-                            )}
-
-                            {/* Upload Section */}
-                            <div className="mt-6 pt-6 border-t">
-                                <h4 className="font-medium mb-4">Upload new document</h4>
-                                <LeadDocumentUploader
-                                    leadId={lead?.id}
-                                    onUploadStart={() => setUploading(true)}
-                                    onUploadComplete={(docId: number, doc: any) => {
-                                        setUploading(false);
-                                        setDocuments((prev) => [doc, ...prev]);
-                                    }}
-                                />
-                                {uploading && (
-                                    <div className="flex items-center gap-2 text-sm text-muted-foreground mt-3">
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                        Processing document...
-                                    </div>
-                                )}
+                        <CardContent>
+                            <div className="bg-muted p-4 rounded-lg">
+                                <pre className="text-sm overflow-auto max-h-64 whitespace-pre-wrap break-words font-mono">
+                                    {JSON.stringify(lead?.metadata, null, 2)}
+                                </pre>
                             </div>
                         </CardContent>
                     </Card>
+                )}
 
-                    {/* Questions Section */}
-                    {lead?.questions && lead?.questions.length > 0 && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Clarifying Questions</CardTitle>
+                {/* Documents Section */}
+                <Card>
+                    <CardHeader>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <CardTitle>Documents</CardTitle>
                                 <CardDescription>
-                                    {lead?.questions.length} question{lead?.questions.length !== 1 ? 's' : ''} to address
+                                    {documents.length === 0
+                                        ? 'No documents uploaded yet'
+                                        : `${documents.length} document${documents.length !== 1 ? 's' : ''} uploaded`}
                                 </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <ul className="space-y-2">
-                                    {lead?.questions.map((q: any) => (
-                                        <li key={q.id} className="flex items-start gap-3 p-3 rounded-md bg-muted/50">
-                                            <span className="text-muted-foreground text-sm">•</span>
-                                            <span className="text-sm">{q.question}</span>
-                                        </li>
-                                    ))}
-                                </ul>
-                            </CardContent>
-                        </Card>
-                    )}
-                </div>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {/* Document List */}
+                        {documents.length > 0 && (
+                            <div className="space-y-3">
+                                {documents.map((d) => (
+                                    <div
+                                        key={d.id}
+                                        className="flex items-start gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                                    >
+                                        <div className="rounded-full bg-muted p-2">
+                                            {getStatusIcon(d.status)}
+                                        </div>
+
+                                        <div className="flex-1 min-w-0 space-y-1">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <h4 className="font-medium truncate">
+                                                    {d.original_name ?? d.filename ?? `Document ${d.id}`}
+                                                </h4>
+                                                <Badge variant={getStatusVariant(d.status)}>
+                                                    {d.status}
+                                                </Badge>
+                                            </div>
+                                            <p className="text-xs text-muted-foreground">
+                                                {d.created_at
+                                                    ? new Date(d.created_at).toLocaleString()
+                                                    : 'Recently uploaded'}
+                                            </p>
+
+                                            {/* AI Summary for Document */}
+                                            {d.ai_summary?.summary && (
+                                                <div className="mt-3 pt-3 border-t">
+                                                    <p className="text-xs font-medium text-muted-foreground mb-2">
+                                                        AI Summary
+                                                    </p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {d.ai_summary.summary}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {d.file_url && (
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                asChild
+                                            >
+                                                <a 
+                                                    href={d.file_url} 
+                                                    download
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    <Download className="h-4 w-4" />
+                                                </a>
+                                            </Button>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Upload Section */}
+                        <div className={documents.length > 0 ? "mt-6 pt-6 border-t" : ""}>
+                            <h4 className="font-medium mb-4">Upload New Document</h4>
+                            <LeadDocumentUploader
+                                leadId={lead?.id}
+                                onUploadStart={() => setUploading(true)}
+                                onUploadComplete={(docId: number, doc: any) => {
+                                    setUploading(false);
+                                    setDocuments((prev) => [doc, ...prev]);
+                                }}
+                            />
+                            {uploading && (
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-3 p-3 bg-muted rounded-lg">
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    Processing document with AI...
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Questions Section */}
+                {lead?.questions && lead?.questions.length > 0 && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Clarifying Questions</CardTitle>
+                            <CardDescription>
+                                AI-generated questions to better understand this lead
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-3">
+                                {lead?.questions.map((q: any, idx: number) => (
+                                    <div 
+                                        key={q.id} 
+                                        className="flex gap-3 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                                    >
+                                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">
+                                            {idx + 1}
+                                        </div>
+                                        <p className="text-sm flex-1">{q.question}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </AppLayout>
     );

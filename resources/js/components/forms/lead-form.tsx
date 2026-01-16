@@ -12,16 +12,19 @@ import { Loader2 } from 'lucide-react';
 // Zod Schema
 const leadFormSchema = z.object({
     title: z.string().min(1, 'Title is required').max(255, 'Title must be less than 255 characters'),
-    type: z.enum(['document', 'conversation'], {
-        required_error: 'Please select a lead type',
-    }),
+    type: z.enum(['document', 'conversation']).refine(
+        (val) => val === 'document' || val === 'conversation',
+        { message: 'Please select a lead type' }
+    ),
     description: z.string().optional(),
-    owner_id: z.number({
-        required_error: 'Please select an owner',
-    }),
-    pipeline_stage_id: z.number({
-        required_error: 'Please select a pipeline stage',
-    }),
+    owner_id: z.preprocess(
+        (v) => (typeof v === 'string' ? parseInt(v, 10) : v),
+        z.number().refine((val) => !isNaN(val), { message: 'Please select an owner' })
+    ),
+    pipeline_stage_id: z.preprocess(
+        (v) => (typeof v === 'string' ? parseInt(v, 10) : v),
+        z.number().refine((val) => !isNaN(val), { message: 'Please select a pipeline stage' })
+    ),
 });
 
 type LeadFormValues = z.infer<typeof leadFormSchema>;
@@ -48,7 +51,7 @@ export function LeadForm({
         setValue,
         watch,
     } = useForm<LeadFormValues>({
-        resolver: zodResolver(leadFormSchema),
+        resolver: zodResolver(leadFormSchema) as any,
         defaultValues: initialData,
     });
 

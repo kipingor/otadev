@@ -21,7 +21,8 @@
         "smalot/pdfparser": "^2.12",
         "spatie/laravel-activitylog": "^4.10",
         "spatie/laravel-permission": "^6.23",
-        "spatie/pdf-to-text": "^1.55"
+        "spatie/pdf-to-text": "^1.55",
+        "tightenco/ziggy": "^2.6"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

@@ -41,6 +41,7 @@
 
         @viteReactRefresh
         @if (!app()->environment('testing'))
+            @routes
             @vite(['resources/js/app.tsx'])
         @endif
         @inertiaHead

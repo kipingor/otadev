@@ -44,17 +44,45 @@ enum LeadStatus: string
     public function canTransitionTo(self $status): bool
     {
         $transitions = [
-            self::NEW => [self::CONTACTED, self::LOST, self::ARCHIVED],
-            self::CONTACTED => [self::QUALIFIED, self::LOST, self::ARCHIVED],
-            self::QUALIFIED => [self::PROPOSAL_SENT, self::LOST, self::ARCHIVED],
-            self::PROPOSAL_SENT => [self::NEGOTIATION, self::LOST, self::ARCHIVED],
-            self::NEGOTIATION => [self::WON, self::LOST, self::ARCHIVED],
-            self::WON => [self::ARCHIVED],
-            self::LOST => [self::ARCHIVED],
-            self::ARCHIVED => [],
+            self::NEW->value => [
+                self::CONTACTED,
+                self::LOST,
+                self::ARCHIVED,
+            ],
+            self::CONTACTED->value => [
+                self::QUALIFIED,
+                self::LOST,
+                self::ARCHIVED,
+            ],
+            self::QUALIFIED->value => [
+                self::PROPOSAL_SENT,
+                self::LOST,
+                self::ARCHIVED,
+            ],
+            self::PROPOSAL_SENT->value => [
+                self::NEGOTIATION,
+                self::LOST,
+                self::ARCHIVED,
+            ],
+            self::NEGOTIATION->value => [
+                self::WON,
+                self::LOST,
+                self::ARCHIVED,
+            ],
+            self::WON->value => [
+                self::ARCHIVED,
+            ],
+            self::LOST->value => [
+                self::ARCHIVED,
+            ],
+            self::ARCHIVED->value => [],
         ];
-
-        return in_array($status, $transitions[$this] ?? [], true);
+    
+        return in_array(
+            $status,
+            $transitions[$this->value] ?? [],
+            true
+        );
     }
 
     /**

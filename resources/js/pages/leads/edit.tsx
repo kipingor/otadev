@@ -35,7 +35,7 @@ export default function EditLead({ lead, users, pipelineStages }) {
                 ]}
             />
 
-            <div className="mt-6">
+            <div className="mt-6 p-6">
                 <LeadForm
                     initialData={lead}
                     users={users}
