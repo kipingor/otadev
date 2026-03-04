@@ -103,6 +103,16 @@ class Project extends Model
     }
 
     /**
+     * Get the expenses for this project
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function expenses()
+    {
+        return $this->hasMany(Expense::class);
+    }
+
+    /**
      * Get the team members (users) for this project.
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany

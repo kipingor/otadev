@@ -14,29 +14,37 @@ class Opportunity extends Model
     use HasFactory, SoftDeletes;
 
     public const STAGES = [
-        'prospect',
+        'qualification',
         'proposal',
         'negotiation',
-        'won',
-        'lost',
+        'closed_won',
+        'closed_lost',
     ];
 
     protected $fillable = [
         'lead_id',
+        'assigned_to',
+        'owner_id',
         'title',
         'summary',
+        'description',
         'estimated_value',
         'currency',
+        'probability',
         'stage',
-        'owner_id',
         'expected_close_date',
+        'contact_name',
+        'contact_email',
+        'contact_phone',
         'ai_suggestions',
     ];
 
     protected $casts = [
         'ai_suggestions' => 'array',
         'estimated_value' => 'decimal:2',
+        'probability'     => 'integer',
         'expected_close_date' => 'datetime:Y-m-d',
+        'stage' => \App\Enums\OpportunityStage::class,
     ];
 
     public function lead()

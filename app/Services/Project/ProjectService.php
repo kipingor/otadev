@@ -201,7 +201,7 @@ class ProjectService
                 'completed_at' => now(),
             ]);
 
-            event(new ProjectCompleted($project));
+            event(new ProjectCompleted($project->id));
 
             return $project->refresh();
         });
@@ -268,30 +268,47 @@ class ProjectService
     }
 
     /**
-     * Calculate budget utilization
+     * Calculate budget utilization.
+     *
+     * Full expense tracking (an `expenses` table) has not been migrated yet.
+     * Until that feature is built, we derive "effort spent" from the task
+     * time-tracking data that already exists:
+     *
+     *   estimated_hours  → budget (hours)
+     *   spent_hours      → consumed (hours, tracked per task)
+     *
+     * This gives a meaningful, accurate progress indicator without fabricating
+     * numbers.  When a real expense model is wired up, replace the two
+     * $spentHours/$budgetHours lines with actual monetary aggregates.
      */
     public function calculateBudgetUtilization(Project $project): array
     {
-        if (!$project->budget) {
+        $budgetHours  = (int) $project->tasks()->sum('estimated_hours');
+        $spentHours   = (int) $project->tasks()->sum('spent_hours');
+
+        // If no hour estimates exist at all, fall back to monetary budget so
+        // the card is still useful when a budget figure was entered.
+        if ($budgetHours === 0 && $project->budget) {
             return [
-                'budget' => 0,
-                'spent' => 0,
-                'remaining' => 0,
+                'budget'      => (float) $project->budget,
+                'spent'       => 0,
+                'remaining'   => (float) $project->budget,
                 'utilization' => 0,
+                'mode'        => 'monetary',   // hint for the front-end label
             ];
         }
 
-        // This would typically come from expense tracking
-        // For now, we'll return a placeholder
-        $spent = $project->expenses()->sum('amount') ?? 0;
-        $remaining = $project->budget - $spent;
-        $utilization = round(($spent / $project->budget) * 100, 2);
+        $remaining   = max(0, $budgetHours - $spentHours);
+        $utilization = $budgetHours > 0
+            ? round(min(($spentHours / $budgetHours) * 100, 100), 1)
+            : 0;
 
         return [
-            'budget' => $project->budget,
-            'spent' => $spent,
-            'remaining' => $remaining,
+            'budget'      => $budgetHours,
+            'spent'       => $spentHours,
+            'remaining'   => $remaining,
             'utilization' => $utilization,
+            'mode'        => 'hours',          // hint for the front-end label
         ];
     }
 
@@ -304,6 +321,7 @@ class ProjectService
             'total' => Project::count(),
             'by_status' => [
                 'planning' => Project::where('status', 'planning')->count(),
+                'active' => Project::where('status', 'active')->count(),
                 'in_progress' => Project::where('status', 'in_progress')->count(),
                 'on_hold' => Project::where('status', 'on_hold')->count(),
                 'completed' => Project::where('status', 'completed')->count(),
@@ -344,7 +362,7 @@ class ProjectService
 
         if ($status === 'completed') {
             $project->update(['completed_at' => now()]);
-            event(new ProjectCompleted($project));
+            event(new ProjectCompleted($project->id));
         }
 
         return $project->refresh();

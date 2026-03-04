@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('title');
             $table->text('description')->nullable();
             $table->date('due_date')->nullable();
+            $table->date('completed_at')->nullable();
             $table->enum('status', ['pending', 'achieved', 'overdue'])->default('pending');
             $table->timestamps();
             $table->softDeletes();
@@ -36,6 +37,8 @@ return new class extends Migration
             $table->enum('status', ['todo', 'in_progress', 'review', 'done'])->default('todo');
             $table->date('startAt')->nullable();
             $table->date('endAt')->nullable();
+            $table->date('completed_at')->nullable();
+            $table->date('due_date')->nullable();
             $table->integer('estimated_hours')->nullable();
             $table->integer('spent_hours')->default(0);
             $table->string('group')->default('None');

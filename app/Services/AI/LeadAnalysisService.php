@@ -2,6 +2,7 @@
 
 namespace App\Services\AI;
 
+use App\Enums\LeadDocumentStatus;
 use App\Models\Lead;
 use App\Models\LeadDocument;
 use App\Models\LeadQuestion;
@@ -52,7 +53,7 @@ class LeadAnalysisService
         // Add context if available
         $prompt = $this->buildPromptForAnalysis($leadText, $payload['context'] ?? '');
 
-        $aiResponse = $this->client->generate($prompt, ['temperature' => 0.15]);
+        $aiResponse = $this->client->chat($prompt, ['temperature' => 0.15]);
 
         // Expect AI to return JSON with keys: summary, requirements, questions
         $json = $this->extractJsonFromResponse($aiResponse);
@@ -86,8 +87,7 @@ class LeadAnalysisService
         // For each document, ensure it has extracted_text and ai_summary
         foreach ($lead->leadDocuments as $doc) {
             if (empty($doc->extracted_text) || empty($doc->extracted_text['text'])) {
-                $disk = storage_path('app/' . $doc->storage_path);
-                $text = $this->parser->extractText($disk, $doc->mime_type);
+                $text = $this->extractor->extract($doc->storage_path);
                 if (!empty($text)) {
                     $doc->extracted_text = ['text' => $text];
                     $doc->save();
@@ -98,7 +98,7 @@ class LeadAnalysisService
                 $prompt = "Summarize this document into 3–6 bullet points and list action items:\n\n" .
                           mb_substr($doc->extracted_text['text'] ?? '', 0, 30000);
 
-                $summary = $this->client->generate($prompt, [
+                $summary = $this->client->chat($prompt, [
                     'max_tokens' => 500,
                     'temperature' => 0.2,
                 ]);
@@ -107,7 +107,7 @@ class LeadAnalysisService
                     'summary' => is_string($summary) ? trim($summary) : $summary,
                     'generated_at' => now()->toDateTimeString(),
                 ];
-                $doc->status = LeadDocument::STATUS_SUCCEEDED;
+                $doc->status = LeadDocumentStatus::SUCCEEDED;
                 $doc->save();
             }
         }
@@ -119,13 +119,15 @@ class LeadAnalysisService
             $leadPrompt .= ($d->ai_summary['summary'] ?? '') . "\n";
         }
 
-        $leadSuggestions = $this->client->generate($leadPrompt, ['max_tokens' => 400, 'temperature' => 0.2]);
+        $leadSuggestions = $this->client->chat($leadPrompt, ['max_tokens' => 400, 'temperature' => 0.2]);
 
         $lead->metadata = array_merge($lead->metadata ?? [], [
             'ai_suggestions' => is_string($leadSuggestions) ? trim($leadSuggestions) : $leadSuggestions,
         ]);
         $lead->ai_reviewed = true;
         $lead->save();
+
+        return $lead->metadata;
     }
 
     /**

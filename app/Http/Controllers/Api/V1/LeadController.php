@@ -5,18 +5,21 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Lead\StoreLeadRequest;
 use App\Http\Requests\Lead\UpdateLeadRequest;
+use App\Http\Requests\Lead\TransitionLeadStatusRequest;
 use App\Models\Lead;
 use App\Services\Lead\LeadService;
 use App\Services\Lead\LeadStatusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class LeadController extends Controller
 {
     public function __construct(
         protected LeadService $leadService,
         protected LeadStatusService $leadStatusService
-    ) {}
+    ) {
+    }
 
     /**
      * Get paginated list of leads with filters
@@ -92,7 +95,7 @@ class LeadController extends Controller
     {
         $this->authorize('delete', $lead);
 
-        $lead->delete();
+        $this->leadService->delete($lead);
 
         return response()->json([
             'success' => true,
@@ -104,14 +107,17 @@ class LeadController extends Controller
     {
         $this->authorize('viewAny', Lead::class);
 
+        $newThisWeek = Lead::where('created_at', '>=', now()->subWeek())->get('id');
+        $newThisMonth = Lead::where('created_at', '>=', now()->subMonth())->get('id');
+
         return response()->json([
             'success' => true,
             'data' => [
-                'total' => Lead::count(),
+                'total' => Lead::all()->count(),
                 'by_status' => $this->leadService->getStatusCounts(),
                 'by_stage' => $this->leadService->getStageCounts(),
-                'new_this_week' => Lead::where('created_at', '>=', now()->subWeek())->count(),
-                'new_this_month' => Lead::where('created_at', '>=', now()->subMonth())->count(),
+                'new_this_week' => $newThisWeek->count(),
+                'new_this_month' => $newThisMonth->count(),
             ]
         ]);
     }
@@ -139,7 +145,7 @@ class LeadController extends Controller
      */
     public function bulkStore(Request $request): JsonResponse
     {
-        $this->authorize('create', Lead::class);
+        $this->authorize('create', arguments: Lead::class);
 
         $validated = $request->validate([
             'leads' => 'required|array|min:1|max:100',
@@ -208,27 +214,209 @@ class LeadController extends Controller
         ]);
     }
 
-    public function transition(Request $request, Lead $lead): JsonResponse
+    public function transition(TransitionLeadStatusRequest $request, Lead $lead): JsonResponse
+    {
+        // Authorization is handled in the request class
+        $validated = $request->validated();
+        $newStatus = \App\Enums\LeadStatus::from($validated['status']);
+
+        try {
+            if ($newStatus === \App\Enums\LeadStatus::LOST && isset($validated['reason'])) {
+                $lead = $this->leadStatusService->markAsLost($lead, $validated['reason']);
+            } else {
+                $lead = $this->leadStatusService->transition($lead, $newStatus);
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "Lead status updated to {$newStatus->label()}",
+                'data' => $lead->load(['owner', 'pipelineStage']),
+            ]);
+        } catch (\App\Exceptions\InvalidStatusTransitionException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'error' => 'invalid_status_transition',
+                'details' => [
+                    'current_status' => [
+                        'value' => $lead->status->value,
+                        'label' => $lead->status->label(),
+                    ],
+                    'allowed_transitions' => array_map(
+                        fn ($status) => [
+                            'value' => $status->value,
+                            'label' => $status->label(),
+                            'color' => $status->color(),
+                        ],
+                        $lead->status->getAllowedTransitions()
+                    ),
+                ],
+            ], 422);
+        }
+    }
+
+    /**
+     * Toggle starred status for a lead
+     */
+    public function toggleStar(Lead $lead): \Illuminate\Http\RedirectResponse
     {
         $this->authorize('update', $lead);
 
+        $lead->update(['is_starred' => !$lead->is_starred]);
+
+        return redirect()->back()->with('success', $lead->is_starred ? 'Lead starred' : 'Lead unstarred');
+    }
+
+    /**
+     * Get available status transitions for a lead
+     */
+    public function availableTransitions(Lead $lead): JsonResponse
+    {
+        $this->authorize('view', $lead);
+
+        $availableStatuses = collect(
+            $lead->status->getAllowedTransitions()
+        )->map(function ($status) {
+            return [
+                'value' => $status->value,
+                'label' => $status->label(),
+                'color' => $status->color(),
+                'timestamp_field' => $status->timestampField(),
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $availableStatuses,
+        ]);
+    }
+
+    /**
+     * Bulk delete leads
+     */
+    public function bulkDelete(Request $request): JsonResponse
+    {
         $request->validate([
-            'status' => 'required|string',
-            'reason' => 'nullable|string|max:1000',
+            'lead_ids' => 'required|array',
+            'lead_ids.*' => 'required|integer|exists:leads,id',
         ]);
 
-        $newStatus = \App\Enums\LeadStatus::from($request->status);
+        $leads = Lead::whereIn('id', $request->lead_ids)->get();
+        
+        // Check authorization for each lead
+        foreach ($leads as $lead) {
+            $this->authorize('delete', $lead);
+        }
 
-        if ($newStatus === \App\Enums\LeadStatus::LOST && $request->has('reason')) {
-            $this->leadStatusService->markAsLost($lead, $request->reason);
-        } else {
+        $count = Lead::whereIn('id', $request->lead_ids)->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$count} lead(s) deleted successfully",
+            'data' => [
+                'deleted_count' => $count,
+                'deleted_ids' => $request->lead_ids,
+            ],
+        ]);
+    }
+
+    /**
+     * Bulk archive leads
+     */
+    public function bulkArchive(Request $request): JsonResponse
+    {
+        $request->validate([
+            'lead_ids' => 'required|array',
+            'lead_ids.*' => 'required|integer|exists:leads,id',
+        ]);
+
+        $leads = Lead::whereIn('id', $request->lead_ids)->get();
+        
+        // Check authorization for each lead
+        foreach ($leads as $lead) {
+            $this->authorize('update', $lead);
+        }
+
+        $count = Lead::whereIn('id', $request->lead_ids)
+            ->update([
+                'status' => \App\Enums\LeadStatus::ARCHIVED,
+                'archived_at' => now(),
+            ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$count} lead(s) archived successfully",
+            'data' => [
+                'archived_count' => $count,
+                'archived_ids' => $request->lead_ids,
+            ],
+        ]);
+    }
+
+    /**
+     * Bulk update lead status
+     */
+    public function bulkUpdateStatus(Request $request): JsonResponse
+    {
+        $request->validate([
+            'lead_ids' => 'required|array',
+            'lead_ids.*' => 'required|integer|exists:leads,id',
+            'status' => ['required', Rule::enum(\App\Enums\LeadStatus::class)],
+        ]);
+
+        $leads = Lead::whereIn('id', $request->lead_ids)->get();
+        
+        // Check authorization for each lead
+        foreach ($leads as $lead) {
+            $this->authorize('update', $lead);
+        }
+
+        $newStatus = \App\Enums\LeadStatus::from($request->status);
+        
+        foreach ($leads as $lead) {
             $this->leadStatusService->transition($lead, $newStatus);
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Lead status updated successfully',
-            'data' => $lead->load(['owner', 'pipelineStage']),
+            'message' => "{$leads->count()} lead(s) updated successfully",
+            'data' => [
+                'updated_count' => $leads->count(),
+                'updated_ids' => $request->lead_ids,
+                'new_status' => $newStatus->value,
+            ],
+        ]);
+    }
+
+    /**
+     * Bulk assign owner
+     */
+    public function bulkAssignOwner(Request $request): JsonResponse
+    {
+        $request->validate([
+            'lead_ids' => 'required|array',
+            'lead_ids.*' => 'required|integer|exists:leads,id',
+            'owner_id' => 'required|integer|exists:users,id',
+        ]);
+
+        $leads = Lead::whereIn('id', $request->lead_ids)->get();
+        
+        // Check authorization for each lead
+        foreach ($leads as $lead) {
+            $this->authorize('update', $lead);
+        }
+
+        $count = Lead::whereIn('id', $request->lead_ids)
+            ->update(['owner_id' => $request->owner_id]);
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$count} lead(s) reassigned successfully",
+            'data' => [
+                'updated_count' => $count,
+                'updated_ids' => $request->lead_ids,
+                'new_owner_id' => $request->owner_id,
+            ],
         ]);
     }
 }

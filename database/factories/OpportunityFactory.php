@@ -21,7 +21,7 @@ class OpportunityFactory extends Factory
      */
     public function definition(): array
     {
-        $stage = $this->faker->randomElement(['prospect', 'proposal', 'negotiation', 'won', 'lost']);
+        $stage = $this->faker->randomElement(['qualification', 'proposal', 'negotiation', 'closed_won', 'closed_lost']);
 
         return [
             'lead_id' => Lead::query()->inRandomOrder()->first()?->id ?? Lead::factory(),

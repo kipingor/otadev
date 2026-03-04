@@ -81,6 +81,15 @@ class UpdateLeadRequest extends FormRequest
                 'sometimes',
                 'boolean',
             ],
+            'is_starred' => [
+                'sometimes',
+                'boolean',
+            ],
+            'estimated_value' => [
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
         ];
     }
 

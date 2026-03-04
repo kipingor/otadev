@@ -1,10 +1,10 @@
-// File: resources/js/hooks/useTasks.ts
-import { useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { echo } from "@/lib/echo";
 import { Task } from "@/types";
 
+const EMPTY_TASKS: Task[] = [];
 
 export function useTasks(projectId?: number | string) {
     const queryClient = useQueryClient();
@@ -12,28 +12,28 @@ export function useTasks(projectId?: number | string) {
 
     /** ──────── Fetch tasks ──────── **/
     const {
-        data: tasks = [],
+        data,
         isLoading,
         isError,
         refetch,
-    } = useQuery<Task[]>({
+    } = useQuery<Task[]>({        
         queryKey: ["tasks", projectIdNum],
         queryFn: async () => {
             if (!projectIdNum) return [];
             try {
                 const response = await api.get(`/projects/${projectIdNum}/tasks`);
-                return response.data;
+                return response.data.data || response.data;
             } catch (err: any) {
-                // If project not found (404) return empty array so UI can render gracefully.
                 if (err?.response?.status === 404) return [];
                 throw err;
             }
         },
         enabled: !!projectIdNum,
-        // Don't aggressively retry queries on auth failure — handle reauth centrally
         retry: false,
         refetchOnWindowFocus: false,
     });
+
+    const tasks = data ?? EMPTY_TASKS;
 
     /** ──────── Update status (Optimistic UI) ──────── **/
     const updateTaskStatus = useMutation({
@@ -61,8 +61,8 @@ export function useTasks(projectId?: number | string) {
     /** ──────── Real-time Echo updates ──────── **/
     useEffect(() => {
         if (!(echo as any) || typeof (echo as any).channel !== 'function') return;
+        if (!projectIdNum) return; 
 
-        // Use proper Echo API; echo.channel returns a channel with listen()
         const channel = (echo as any).channel(`projects.${projectIdNum}.tasks`);
 
         const onCreated = (task: Task) => {
@@ -92,7 +92,7 @@ export function useTasks(projectId?: number | string) {
                 // ignore any errors during cleanup
             }
         };
-    }, [projectId, queryClient]);
+    }, [projectIdNum, queryClient]);
 
     return {
         tasks,

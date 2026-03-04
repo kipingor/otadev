@@ -11,7 +11,7 @@ class ActivityService
         string $event,
         string $description,
         mixed $subject,
-        array $changes = null
+        array $changes = []
     ): ActivityLog {
         return ActivityLog::create([
             'user_id' => Auth::id(),

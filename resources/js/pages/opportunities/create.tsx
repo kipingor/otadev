@@ -24,7 +24,7 @@ export default function OpportunityCreate() {
         lead_id: '' as number | '' | null,
         estimated_value: '',
         currency: currencyOptions[0] ?? 'USD',
-        stage: stageOptions[0] ?? 'prospect',
+        stage: stageOptions[0] ?? 'qualification',
         owner_id: '' as number | '' | null,
         expected_close_date: '',
     });

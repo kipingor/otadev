@@ -16,6 +16,11 @@ class LeadDeleted implements ShouldBroadcast
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     /**
+     * The lead that was created.
+     */
+    public Lead $lead;
+    
+    /**
      * The ID of the deleted lead.
      */
     public int $leadId;

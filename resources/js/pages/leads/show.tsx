@@ -11,6 +11,14 @@ import { Loader2, FileText, Clock, CheckCircle2, AlertCircle, Edit, ArrowLeft, D
 import { PageHeader } from '@/components/ui/page-header';
 import { LeadStatusBadge } from '@/components/ui/status-badge';
 import { route } from 'ziggy-js';
+import { 
+    ActivityTimeline,      // Main timeline view
+    ActivityCard,          // Single activity
+    ActivityFormModal,     // Create/edit form
+    ActivityTypeIcon,      // Type icons
+    ActivityStats,         // Statistics widget
+    QuickAddActivity       // Floating add button
+} from '@/components/activities';
 
 interface LeadDocument {
     id: number;

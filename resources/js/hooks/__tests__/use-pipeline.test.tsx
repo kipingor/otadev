@@ -104,7 +104,8 @@ describe('usePipeline hook', () => {
 
         // Provide initial data to avoid network timing flakiness in CI/local runs
         const Wrapper = React.forwardRef(function Wrapper(_props, ref) {
-            const hook = usePipeline({ stages: mockStages, leadsByStage: mockLeadsByStage });
+            // Fix type incompatibility by casting mockStages to 'any'
+            const hook = usePipeline({ stages: mockStages as any, leadsByStage: mockLeadsByStage });
             React.useImperativeHandle(ref, () => hook, [hook]);
             return null;
         });
@@ -140,7 +141,8 @@ describe('usePipeline hook', () => {
     it('optimistically moves a lead to a new stage and confirms success', async () => {
         const ref: any = React.createRef();
         const Wrapper = React.forwardRef(function Wrapper(_props, ref) {
-            const hook = usePipeline({ stages: mockStages, leadsByStage: mockLeadsByStage });
+            // Fix type incompatibility by casting mockStages to 'any'
+            const hook = usePipeline({ stages: mockStages as any, leadsByStage: mockLeadsByStage });
             React.useImperativeHandle(ref, () => hook, [hook]);
             return null;
         });
@@ -170,7 +172,7 @@ describe('usePipeline hook', () => {
 
         const ref: any = React.createRef();
         const Wrapper = React.forwardRef(function Wrapper(_props, ref) {
-            const hook = usePipeline({ stages: mockStages, leadsByStage: mockLeadsByStage });
+            const hook = usePipeline({ stages: mockStages as any, leadsByStage: mockLeadsByStage });
             React.useImperativeHandle(ref, () => hook, [hook]);
             return null;
         });

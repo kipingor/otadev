@@ -7,7 +7,6 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Toaster } from '@/components/ui/toaster';
 import { initializeTheme } from './hooks/use-appearance';
-
 import initAuth from '@/lib/initAuth';
 import './lib/echo';
 import './lib/vite-origin-check';
@@ -40,7 +39,7 @@ const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
             splash = null;
         }
 
-        await initAuth({ warmUser: true });
+        await initAuth();
     } catch (e) {
         // ignore — initAuth logs internally
     }

@@ -2,6 +2,7 @@
 
 namespace App\Services\Lead;
 
+use App\Enums\LeadDocumentStatus;
 use App\Models\LeadDocument;
 use App\Models\Lead;
 use App\Events\LeadDocumentUploaded;
@@ -34,7 +35,7 @@ class LeadDocumentService
                 'file_type' => $file->getClientOriginalExtension(),
                 'file_size' => $file->getSize(),
                 'processed' => false,
-                'status' => LeadDocument::STATUS_PENDING,
+                'status' => LeadDocumentStatus::PENDING,
                 'metadata' => $additionalData['metadata'] ?? [],
             ]);
 
@@ -105,7 +106,7 @@ class LeadDocumentService
 
         $document->update([
             'processed' => false,
-            'status' => LeadDocument::STATUS_FAILED,
+            'status' => LeadDocumentStatus::FAILED,
             'metadata' => $metadata,
         ]);
 
@@ -128,7 +129,7 @@ class LeadDocumentService
 
         $document->update([
             'processed' => true,
-            'status' => LeadDocument::STATUS_SUCCEEDED,
+            'status' => LeadDocumentStatus::SUCCEEDED,
             'metadata' => $metadata,
         ]);
 

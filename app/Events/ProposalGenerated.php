@@ -17,10 +17,9 @@ class ProposalGenerated
     /**
      * Create a new event instance.
      */
-    public function __construct()
-    {
-        //
-    }
+    public function __construct(
+        public int $proposalId
+    ) {}
 
     /**
      * Get the channels the event should broadcast on.
@@ -30,7 +29,15 @@ class ProposalGenerated
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('channel-name'),
+            new PrivateChannel('proposals.' . $this->proposalId),
+        ];
+    }
+
+    public function broadcastWith(): array
+    {
+        return [
+            'proposal_id' => $this->proposalId,
+            'status' => 'generated',
         ];
     }
 }

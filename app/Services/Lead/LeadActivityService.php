@@ -3,9 +3,7 @@
 namespace App\Services;
 
 use App\Models\Lead;
-use App\Models\LeadActivity;
 use App\Models\Activity;
-use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 
 class LeadActivityService
@@ -22,7 +20,7 @@ class LeadActivityService
     {
         return Activity::create([
             'lead_id' => $lead->id,
-            'user_id' => auth()->id(),
+            'user_id' => Auth::id(),
             'action' => $action,
             'data' => $data,
             'created_at' => now(),

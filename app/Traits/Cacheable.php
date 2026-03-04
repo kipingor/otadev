@@ -17,7 +17,7 @@ trait Cacheable
     /**
      * Clear cache for a model.
      */
-    public static function clearCache(string $pattern = null): void
+    public static function clearCache(string $pattern): void
     {
         $modelName = class_basename(static::class);
         $pattern = $pattern ?? strtolower($modelName) . '_*';

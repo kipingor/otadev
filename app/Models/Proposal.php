@@ -28,6 +28,7 @@ class Proposal extends Model
         'opportunity_id',
         'lead_id',
         'content',
+        'generated_by_ai',
         'status',
         'sent_at',
         'viewed_at',

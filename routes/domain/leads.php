@@ -31,6 +31,27 @@ Route::prefix('leads')->name('leads.')->group(function () {
         Route::get('/create', [LeadDocumentController::class, 'create'])->name('create');
         Route::post('/', [LeadDocumentController::class, 'store'])->name('store');
     });
+
+    // Bulk Lead Operations
+    // Bulk Delete
+    Route::delete('/bulk-delete', [LeadController::class, 'bulkDelete'])
+        ->name('bulk-delete');
+    
+    // Bulk Export
+    Route::post('/bulk-export', [LeadController::class, 'bulkExport'])
+        ->name('bulk-export');
+    
+    // Bulk Update Status
+    Route::patch('/bulk-update-status', [LeadController::class, 'bulkUpdateStatus'])
+        ->name('bulk-update-status');
+    
+    // Bulk Assign
+    Route::patch('/bulk-assign', [LeadController::class, 'bulkAssign'])
+        ->name('bulk-assign');
+    
+    // Bulk Update Stage
+    Route::patch('/bulk-update-stage', [LeadController::class, 'bulkUpdateStage'])
+        ->name('bulk-update-stage');
 });
 
 // Lead documents (standalone routes)

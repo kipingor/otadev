@@ -59,7 +59,7 @@ class LeadDocumentProcessingService
             $this->updateLeadFromExtractedData($document->lead, $extractedData);
 
             // Dispatch success event
-            event(new LeadDocumentProcessed($document, $extractedData));
+            event(new LeadDocumentProcessed($document, $extractedData['summary'] ?? ''));
 
             Log::info('Document processed successfully', [
                 'document_id' => $document->id,

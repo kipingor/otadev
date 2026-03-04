@@ -9,6 +9,7 @@ use App\Models\Activity;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * Log Lead Activity Listener
@@ -42,7 +43,7 @@ class LogLeadActivity implements ShouldQueue
                 'subject_type' => get_class($event->lead),
                 'subject_id' => $event->lead->id,
                 'causer_type' => 'App\Models\User',
-                'causer_id' => $event->lead->created_by ?? auth()->id(),
+                'causer_id' => $event->lead->created_by ?? Auth::id(),
                 'properties' => json_encode([
                     'lead_id' => $event->lead->id,
                     'title' => $event->lead->title,
@@ -100,7 +101,7 @@ class LogLeadActivity implements ShouldQueue
                 'subject_type' => get_class($event->lead),
                 'subject_id' => $event->lead->id,
                 'causer_type' => 'App\Models\User',
-                'causer_id' => auth()->id(),
+                'causer_id' => Auth::id(),
                 'properties' => json_encode([
                     'lead_id' => $event->lead->id,
                     'changes' => $changes,
@@ -133,25 +134,25 @@ class LogLeadActivity implements ShouldQueue
         try {
             Activity::create([
                 'type' => 'lead_deleted',
-                'description' => "Lead '{$event->lead->title}' was deleted",
+                'description' => "Lead '{$event->title}' was deleted",
                 'subject_type' => get_class($event->lead),
-                'subject_id' => $event->lead->id,
+                'subject_id' => $event->leadId,
                 'causer_type' => 'App\Models\User',
-                'causer_id' => auth()->id(),
+                'causer_id' => Auth::id(),
                 'properties' => json_encode([
-                    'lead_id' => $event->lead->id,
-                    'title' => $event->lead->title,
+                    'lead_id' => $event->leadId,
+                    'title' => $event->title,
                     'status' => $event->lead->status,
                     'deleted_at' => now()->toISOString(),
                 ]),
             ]);
 
             Log::info('Lead deletion activity logged', [
-                'lead_id' => $event->lead->id,
+                'lead_id' => $event->leadId,
             ]);
         } catch (\Throwable $e) {
             Log::error('Failed to log lead deletion activity', [
-                'lead_id' => $event->lead->id,
+                'lead_id' => $event->leadId,
                 'error' => $e->getMessage(),
             ]);
         }

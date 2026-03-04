@@ -77,7 +77,7 @@ enum LeadStatus: string
             ],
             self::ARCHIVED->value => [],
         ];
-    
+
         return in_array(
             $status,
             $transitions[$this->value] ?? [],
@@ -122,5 +122,41 @@ enum LeadStatus: string
             self::PROPOSAL_SENT,
             self::NEGOTIATION,
         ];
+    }
+
+    /**
+     * Get all valid transitions from current status.
+     */
+    public function getAllowedTransitions(): array
+    {
+        $transitions = [
+            self::NEW->value => [self::CONTACTED, self::LOST, self::ARCHIVED],
+            self::CONTACTED->value => [self::QUALIFIED, self::LOST, self::ARCHIVED],
+            self::QUALIFIED->value => [self::PROPOSAL_SENT, self::LOST, self::ARCHIVED],
+            self::PROPOSAL_SENT->value => [self::NEGOTIATION, self::LOST, self::ARCHIVED],
+            self::NEGOTIATION->value => [self::WON, self::LOST, self::ARCHIVED],
+            self::WON->value => [self::ARCHIVED],
+            self::LOST->value => [self::ARCHIVED],
+            self::ARCHIVED->value => [],
+        ];
+
+        return $transitions[$this->value] ?? [];
+    }
+
+    public static function values(): array
+    {
+        return array_column(self::cases(), 'value');
+    }
+
+    public static function toArray(): array
+    {
+        return array_map(
+            fn ($case) => [
+                'value' => $case->value,
+                'label' => $case->label(),
+                'color' => $case->color(),
+            ],
+            self::cases()
+        );
     }
 }

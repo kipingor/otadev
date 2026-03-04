@@ -10,7 +10,7 @@ const showToast = (opts: ToastOpts) => {
             g.toast(opts);
             return;
         }
-    } catch {}
+    } catch { }
 
     // fallback to alert for visibility during dev
     if (opts.variant === 'destructive') {
@@ -63,11 +63,10 @@ export const handleDragEnd = ({ event, columns, setColumns }: any) => {
     // POST update to server (optimistic, will rollback on failure)
     (async () => {
         try {
-            const { data, status } = await api.put(
-                `/leads/${activeId}/move`,
-                { lead_id: activeId, to_column: destination.id },
-                { withCredentials: true }
-            );
+            const { data, status } = await api.put(`/leads/${activeId}/move`, {
+                stage_id: destination.id  // Match backend expectation
+            }, { withCredentials: true });
+
 
             if (status >= 200 && status < 300) {
                 showToast({ title: 'Moved', description: 'Item moved successfully' });

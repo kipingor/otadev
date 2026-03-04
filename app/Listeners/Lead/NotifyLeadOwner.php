@@ -7,6 +7,9 @@ use Illuminate\Queue\InteractsWithQueue;
 
 class NotifyLeadOwner implements ShouldQueue
 {
+    use InteractsWithQueue;
+
+
     /**
      * Create the event listener.
      */
@@ -20,6 +23,6 @@ class NotifyLeadOwner implements ShouldQueue
      */
     public function handle(object $event): void
     {
-        //
+        // Implementation for notifying the lead owner
     }
 }

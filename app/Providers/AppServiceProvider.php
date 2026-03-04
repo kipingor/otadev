@@ -5,6 +5,8 @@ namespace App\Providers;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Support\Facades\RateLimiter;
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -30,6 +32,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->configureRateLimiting();
+
         // Register model policies so `Gate::authorize('action', Model::class)` works
 
         // Storage::disk('local')->buildTemporaryUrlsUsing(
@@ -52,8 +56,19 @@ class AppServiceProvider extends ServiceProvider
                         'bindings' => $query->bindings,
                         'time' => $query->time . 'ms',
                     ]);
+                    Log::info('Slow Query: ' . $query->sql);
                 }
             });
         }
+    }
+
+    /**
+     * Configure rate limiting.
+     */
+    private function configureRateLimiting(): void
+    {
+        RateLimiter::for('api', function (\Illuminate\Http\Request $request) {
+            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
+        });
     }
 }

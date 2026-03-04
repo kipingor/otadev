@@ -17,17 +17,13 @@ class TaskUpdated implements ShouldBroadcastNow
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public $task;
-    public $projectId;
-
     /**
      * Create a new event instance.
      */
-    public function __construct(Task $task)
-    {
-        $this->task = $task;
-        $this->projectId = $task->project_id;
-    }
+    public function __construct(
+        public Task $task,
+        public int $projectId = 0
+    ) {}
 
     /**
      * Get the channels the event should broadcast on.

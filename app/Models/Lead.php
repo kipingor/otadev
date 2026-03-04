@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Jobs\ExecuteWorkflowJob;
+use Number;
 
 #[UsePolicy(LeadPolicy::class)]
 class Lead extends Model
@@ -43,12 +45,16 @@ class Lead extends Model
         'order',
         'metadata',
         'ai_reviewed',
+        'is_starred',
         'contacted_at',
         'qualified_at',
+        'proposal_sent_at',
+        'negotiation_started_at',
         'converted_to_opportunity_at',
         'won_at',
         'lost_at',
         'archived_at',
+        'estimated_value',
     ];
 
     /**
@@ -61,9 +67,12 @@ class Lead extends Model
         'status' => LeadStatus::class,
         'metadata' => 'array',
         'ai_reviewed' => 'boolean',
+        'is_starred' => 'boolean',
         'order' => 'integer',
         'contacted_at' => 'datetime',
         'qualified_at' => 'datetime',
+        'proposal_sent_at' => 'datetime',
+        'negotiation_started_at' => 'datetime',
         'converted_to_opportunity_at' => 'datetime',
         'won_at' => 'datetime',
         'lost_at' => 'datetime',
@@ -79,6 +88,29 @@ class Lead extends Model
         'status_label',
         'status_color',
     ];
+
+    protected static function booted()
+    {
+        static::created(function ($lead) {
+            // Trigger "new_lead" workflows
+            Workflow::where('enabled', true)
+                ->where('trigger_type', 'new_lead')
+                ->each(function ($workflow) use ($lead) {
+                    ExecuteWorkflowJob::dispatch($workflow, $lead);
+                });
+        });
+
+        static::updated(function ($lead) {
+            // Trigger "status_change" workflows
+            if ($lead->isDirty('status')) {
+                Workflow::where('enabled', true)
+                    ->where('trigger_type', 'status_change')
+                    ->each(function ($workflow) use ($lead) {
+                        ExecuteWorkflowJob::dispatch($workflow, $lead);
+                    });
+            }
+        });
+    }
 
     // ========== RELATIONSHIPS ==========
 
@@ -151,7 +183,7 @@ class Lead extends Model
      */
     public function activities(): HasMany
     {
-        return $this->hasMany(Activity::class, 'type', 'lead')->latest();
+        return $this->hasMany(Activity::class, 'lead_id')->latest();
     }
 
     /**
@@ -236,6 +268,14 @@ class Lead extends Model
         return $query->where('pipeline_stage_id', $stageId);
     }
 
+    /**
+     * Scope a query to only include starred leads.
+     */
+    public function scopeStarred($query)
+    {
+        return $query->where('is_starred', true);
+    }
+
     // ========== ACCESSORS ==========
 
     /**
@@ -261,8 +301,8 @@ class Lead extends Model
      */
     public function setMetadataAttribute($value): void
     {
-        $this->attributes['metadata'] = is_array($value) 
-            ? json_encode($value) 
+        $this->attributes['metadata'] = is_array($value)
+            ? json_encode($value)
             : $value;
     }
 
@@ -329,10 +369,11 @@ class Lead extends Model
 
     /**
      * Get the relationships that should be eager loaded on index queries.
+     * ✅ IMPROVEMENT: Use this in LeadService to prevent N+1 queries
      */
     public static function indexQuery()
     {
-        return self::with(['owner:id,name,email', 'pipelineStage:id,name']);
+        return self::with(['owner:id,name,email', 'pipelineStage:id,key,name']);
     }
 
     /**
@@ -343,7 +384,7 @@ class Lead extends Model
         return self::with([
             'owner:id,name,email',
             'user:id,name,email',
-            'pipelineStage:id,name',
+            'pipelineStage:id,key,name',
             'questions',
             'leadDocuments',
             'opportunity',

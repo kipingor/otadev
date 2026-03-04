@@ -91,7 +91,7 @@ class LeadDocumentController extends Controller
         return response()->json($documents);
     }
 
-    private function renderDocumentsView(string $view, Collection $documents)
+    private function renderDocumentsView(string $view, LengthAwarePaginator $documents)
     {
         return Inertia::render($view, [
             'documents' => $documents

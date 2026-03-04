@@ -18,7 +18,7 @@ class OpportunityService
         //Apply Filters
         if (isset($filters['lead_id'])) {
             $query->where('lead_id', $filters['lead_id']);
-        }    
+        }
 
         if (isset($filters['owner_id'])) {
             $query->where('owner_id', $filters['owner_id']);
@@ -40,22 +40,23 @@ class OpportunityService
 
     public function markAsWon(Opportunity $opportunity): bool
     {
-        return $opportunity->update(['stage' => 'won']);
+        return $opportunity->update(['stage' => 'closed_won']);
     }
 
     public function markAsLost(Opportunity $opportunity): bool
     {
-        return $opportunity->update(['stage' => 'lost']);
+        return $opportunity->update(['stage' => 'closed_lost']);
     }
 
-    public function getStatistics(): array{
+    public function getStatistics(): array
+    {
         return [
             'total' => Opportunity::count(),
-            'prospect' => Opportunity::where('stage', 'prospect'),
+            'qualification' => Opportunity::where('stage', 'qualification'),
             'proposal' => Opportunity::where('stage', 'proposal'),
             'negotiation' => Opportunity::where('stage', 'negotiation'),
-            'won' => Opportunity::where('stage', 'won'),
-            'lost' => Opportunity::where('stage', 'lost'),
+            'closed_won' => Opportunity::where('stage', 'closed_won'),
+            'closed_lost' => Opportunity::where('stage', 'closed_lost'),
         ];
     }
 }

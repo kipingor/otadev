@@ -18,11 +18,12 @@ export interface BreadcrumbItem {
     href?: any;
 }
 
-export interface PipelineStage {
+export interface PipelineStage {    
     id?: ID;
     key: string;
     name: string;
     order?: number;
+    color?: string;
 }
 
 // legacy alias used across some tests and older code
@@ -47,6 +48,7 @@ export interface Lead {
     // relations commonly hydrated in API responses
     user?: User;
     owner?: User;
+    opportunity?: Opportunity;
     pipelineStage?: PipelineStage;
     [key: string]: any;
 }

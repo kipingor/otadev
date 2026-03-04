@@ -17,10 +17,9 @@ class ProjectCreated
     /**
      * Create a new event instance.
      */
-    public function __construct()
-    {
-        //
-    }
+    public function __construct(
+        public int $projectId
+    ) {}
 
     /**
      * Get the channels the event should broadcast on.
@@ -30,7 +29,15 @@ class ProjectCreated
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('channel-name'),
+            new PrivateChannel('projects.' . $this->projectId),
+        ];
+    }
+
+    public function broadcastWith(): array
+    {
+        return [
+            'project_id' => $this->projectId,
+            'status' => 'created',
         ];
     }
 }

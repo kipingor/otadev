@@ -36,7 +36,7 @@ type User = {
 
 type Task = {
     id: string;
-    group: string;
+    group?: string;
     title?: string;
     name?: string;
     assigned_to?: User;

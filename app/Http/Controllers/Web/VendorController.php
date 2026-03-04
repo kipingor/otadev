@@ -6,6 +6,10 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Vendor;
+use App\Models\Status;
+use App\Models\Category;
+use App\Models\Subcategory;
+use App\Models\Subsubcategory;
 use Illuminate\Database\Query\Builder;
 
 class VendorController extends Controller
@@ -62,16 +66,6 @@ class VendorController extends Controller
     protected function orderByDesc(Builder $query, string $column): Builder
     {
         return $query->orderByDesc($column);
-    }
-    
-    private function paginateVendors(Builder $query, int $perPage): Collection
-    {
-        return $query->paginate($perPage);
-    }
-
-    private function renderVendorsView(string $view, Collection $vendors): InertiaResponse
-    {
-        return Inertia::render($view, compact('vendors'));
     }
 
     private function validateRequest(Request $request, array $rules): array

@@ -23,6 +23,7 @@ return new class extends Migration
             $table->enum('status', ['planning', 'active', 'on_hold', 'completed', 'cancelled'])->default('planning');
             $table->date('start_date')->nullable();
             $table->date('end_date')->nullable();
+            $table->date('completed_at')->nullable();
             $table->decimal('budget', 15, 2)->nullable();
             $table->string('currency', 10)->default('USD');
             $table->json('metadata')->nullable(); // custom project metadata

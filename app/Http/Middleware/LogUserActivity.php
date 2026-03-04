@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
+use Illuminate\Support\Facades\Auth;
 
 class LogUserActivity
 {
@@ -19,7 +20,7 @@ class LogUserActivity
         $response = $next($request);
 
         // Only log for authenticated users
-        if (auth()->check()) {
+        if (Auth::check()) {
             $this->logActivity($request, $response);
         }
 
@@ -67,7 +68,7 @@ class LogUserActivity
     protected function createActivityLog(Request $request, Response $response): void
     {
         try {
-            $user = auth()->user();
+            $user = Auth::user();
             $route = $request->route();
             $method = $request->method();
             $path = $request->path();
@@ -95,7 +96,7 @@ class LogUserActivity
         } catch (\Throwable $e) {
             Log::error('Failed to log user activity', [
                 'error' => $e->getMessage(),
-                'user_id' => auth()->id(),
+                'user_id' => Auth::id(),
             ]);
         }
     }

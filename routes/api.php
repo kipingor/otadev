@@ -7,6 +7,9 @@ use App\Http\Controllers\Api\V1\UploadController;
 use App\Http\Controllers\Api\V1\PipelineController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\LeadController;
+use App\Http\Controllers\Api\V1\ActivityController;
+use App\Http\Controllers\Api\V1\ImportExportController;
+use App\Http\Controllers\Api\V1\DashboardAnalyticsController;
 use App\Http\Controllers\Api\V1\LeadDocumentController;
 use App\Http\Controllers\Api\V1\LeadQuestionController;
 use App\Http\Controllers\Api\V1\OpportunityController;
@@ -34,7 +37,7 @@ Route::prefix('v1')->name('api.')->group(function () {
 
     // Sanctum CSRF cookie route is provided by package (/sanctum/csrf-cookie)
     // Protected routes (Sanctum)
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
         Route::get('/user', function (Request $request) {
             return response()->json([
@@ -65,6 +68,25 @@ Route::prefix('v1')->name('api.')->group(function () {
         Route::post('leads/{lead}/transition', [LeadController::class, 'transition'])
             ->name('leads.transition');
 
+        Route::post('leads/{lead}/toggle-star', [LeadController::class, 'toggleStar'])
+            ->name('leads.toggle-star');
+
+        Route::get('leads/{lead}/available-transitions', [LeadController::class, 'availableTransitions'])
+            ->name('leads.available-transitions');
+
+        // Bulk operations
+        Route::post('leads/bulk-delete', [LeadController::class, 'bulkDelete'])
+            ->name('leads.bulk-delete');
+        
+        Route::post('leads/bulk-archive', [LeadController::class, 'bulkArchive'])
+            ->name('leads.bulk-archive');
+        
+        Route::post('leads/bulk-update-status', [LeadController::class, 'bulkUpdateStatus'])
+            ->name('leads.bulk-update-status');
+        
+        Route::post('leads/bulk-assign-owner', [LeadController::class, 'bulkAssignOwner'])
+            ->name('leads.bulk-assign-owner');
+
         Route::post('leads/{lead}/restore', [LeadController::class, 'restore'])
             ->name('leads.restore');
 
@@ -91,6 +113,26 @@ Route::prefix('v1')->name('api.')->group(function () {
         });
 
         // ========================================================================
+        // LEAD ACTIVITIES
+        // ========================================================================
+        Route::prefix('leads/{lead}')->name('leads.')->group(function () {
+            Route::get('activities', [ActivityController::class, 'index'])
+                ->name('activities.index');
+            Route::post('activities', [ActivityController::class, 'store'])
+                ->name('activities.store');
+            Route::get('activities/{activity}', [ActivityController::class, 'show'])
+                ->name('activities.show');
+            Route::put('activities/{activity}', [ActivityController::class, 'update'])
+                ->name('activities.update');
+            Route::delete('activities/{activity}', [ActivityController::class, 'destroy'])
+                ->name('activities.destroy');
+            Route::post('activities/{activity}/complete', [ActivityController::class, 'complete'])
+                ->name('activities.complete');
+            Route::get('activities-stats', [ActivityController::class, 'statistics'])
+                ->name('activities.statistics');
+        });
+
+        // ========================================================================
         // LEAD QUESTIONS
         // ========================================================================
         Route::apiResource('questions', LeadQuestionController::class)
@@ -109,10 +151,72 @@ Route::prefix('v1')->name('api.')->group(function () {
             ->name('pipelines.leads');
 
         // ========================================================================
+        // IMPORT/EXPORT
+        // ========================================================================
+        Route::prefix('import-export')->name('import-export.')->group(function () {
+            // Import
+            Route::post('upload', [ImportExportController::class, 'uploadImportFile'])
+                ->name('upload');
+            Route::post('start', [ImportExportController::class, 'startImport'])
+                ->name('start');
+            Route::get('imports', [ImportExportController::class, 'listImports'])
+                ->name('list');
+            Route::get('imports/{importJob}', [ImportExportController::class, 'getImportStatus'])
+                ->name('status');
+            Route::delete('imports/{importJob}', [ImportExportController::class, 'deleteImport'])
+                ->name('delete');
+            
+            // Export
+            Route::post('export', [ImportExportController::class, 'export'])
+                ->name('export');
+            
+            // Template
+            Route::get('template', [ImportExportController::class, 'downloadTemplate'])
+                ->name('template');
+        });
+
+        // ========================================================================
+        // DASHBOARD ANALYTICS
+        // ========================================================================
+        Route::prefix('analytics')->name('analytics.')->group(function () {
+            Route::get('overview', [DashboardAnalyticsController::class, 'overview'])
+                ->name('overview');
+            Route::get('leads-by-status', [DashboardAnalyticsController::class, 'leadsByStatus'])
+                ->name('leads-by-status');
+            Route::get('leads-by-source', [DashboardAnalyticsController::class, 'leadsBySource'])
+                ->name('leads-by-source');
+            Route::get('pipeline-by-stage', [DashboardAnalyticsController::class, 'pipelineByStage'])
+                ->name('pipeline-by-stage');
+            Route::get('conversion-funnel', [DashboardAnalyticsController::class, 'conversionFunnel'])
+                ->name('conversion-funnel');
+            Route::get('leads-over-time', [DashboardAnalyticsController::class, 'leadsOverTime'])
+                ->name('leads-over-time');
+            Route::get('activity-stats', [DashboardAnalyticsController::class, 'activityStats'])
+                ->name('activity-stats');
+            Route::get('lead-velocity', [DashboardAnalyticsController::class, 'leadVelocity'])
+                ->name('lead-velocity');
+            Route::get('team-performance', [DashboardAnalyticsController::class, 'teamPerformance'])
+                ->name('team-performance');
+            Route::get('win-loss-analysis', [DashboardAnalyticsController::class, 'winLossAnalysis'])
+                ->name('win-loss-analysis');
+            Route::get('dashboard', [DashboardAnalyticsController::class, 'dashboard'])
+                ->name('dashboard');
+        });
+
+        // ========================================================================
         // OPPORTUNITIES
         // ========================================================================
-        // Custom opportunity routes first (if any exist)
-        // Route::get('opportunities/statistics', [OpportunityController::class, 'statistics']);
+        // Custom opportunity routes first
+        Route::get('opportunities/statistics', [OpportunityController::class, 'statistics'])
+            ->name('opportunities.statistics');
+        Route::get('opportunities/kanban', [OpportunityController::class, 'kanban'])
+            ->name('opportunities.kanban');
+        Route::post('opportunities/{opportunity}/move-stage', [OpportunityController::class, 'moveStage'])
+            ->name('opportunities.move-stage');
+        Route::post('opportunities/{opportunity}/mark-won', [OpportunityController::class, 'markAsWon'])
+            ->name('opportunities.mark-won');
+        Route::post('opportunities/{opportunity}/mark-lost', [OpportunityController::class, 'markAsLost'])
+            ->name('opportunities.mark-lost');
 
         Route::apiResource('opportunities', OpportunityController::class);
 
@@ -125,15 +229,36 @@ Route::prefix('v1')->name('api.')->group(function () {
         Route::apiResource('projects', ProjectController::class);
 
         Route::prefix('projects/{project}')->group(function () {
-            Route::get('tasks', [TaskController::class, 'index'])
+            Route::get('tasks', [ProjectController::class, 'getTasks'])
                 ->name('projects.tasks.index');
+
+            Route::post('tasks', [ProjectController::class, 'createTask'])
+                ->name('projects.tasks.store');
+
+            Route::post('tasks/bulk-update', [ProjectController::class, 'bulkUpdateTasks'])
+                ->name('projects.tasks.bulk-update');
+
+            // Statistics
+            Route::get('statistics', [ProjectController::class, 'getStatistics'])
+                ->name('projects.statistics');
         });
 
         // Custom task routes first (if any exist)
         // Route::get('tasks/statistics', [TaskController::class, 'statistics']);
 
-        Route::apiResource('tasks', TaskController::class);
+        Route::apiResource('tasks', controller: TaskController::class);
+        // Individual task operations
+        Route::prefix('tasks/{task}')->group(function () {
+            Route::put('/', [ProjectController::class, 'updateTask'])
+                ->name('tasks.update');
 
+            Route::post('move', [ProjectController::class, 'moveTask'])
+                ->name('tasks.move');
+
+            Route::delete('/', [ProjectController::class, 'deleteTask'])
+                ->name('tasks.destroy');
+        });
+        
         // ========================================================================
         // PROPOSALS
         // ========================================================================
@@ -166,6 +291,28 @@ Route::prefix('v1')->name('api.')->group(function () {
 
         Route::post('upload/lead-document', [UploadController::class, 'uploadLeadDocument'])
             ->name('upload.lead-document');
+
+        // ========================================================================
+        // PROJECT TEMPLATES
+        // ========================================================================
+        Route::post('project-templates/{template}/duplicate', [\App\Http\Controllers\Api\V1\ProjectTemplateController::class, 'duplicate'])
+            ->name('project-templates.duplicate');
+        Route::apiResource('project-templates', \App\Http\Controllers\Api\V1\ProjectTemplateController::class);
+
+        // ========================================================================
+        // AUTOMATION RULES
+        // ========================================================================
+        Route::post('automation-rules/{rule}/test', [\App\Http\Controllers\Api\V1\AutomationRuleController::class, 'test'])
+            ->name('automation-rules.test');
+        Route::apiResource('automation-rules', \App\Http\Controllers\Api\V1\AutomationRuleController::class);
+
+        // ========================================================================
+        // AUTOMATION LOGS
+        // ========================================================================
+        Route::post('automation-logs/{log}/retry', [\App\Http\Controllers\Api\V1\AutomationLogController::class, 'retry'])
+            ->name('automation-logs.retry');
+        Route::apiResource('automation-logs', \App\Http\Controllers\Api\V1\AutomationLogController::class)
+            ->only(['index', 'show']);
 
         // ========================================================================
         // DASHBOARD METRICS

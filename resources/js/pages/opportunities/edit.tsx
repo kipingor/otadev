@@ -86,7 +86,7 @@ export default function OpportunityEdit() {
             lead_id: (opportunity?.lead_id ?? '') as number | '' | null,
             estimated_value: opportunity?.estimated_value ?? '',
             currency: opportunity?.currency ?? currencyOptions[0] ?? 'USD',
-            stage: opportunity?.stage ?? stageOptions[0] ?? 'prospect',
+            stage: opportunity?.stage ?? stageOptions[0] ?? 'qualification',
             owner_id: (opportunity?.owner_id ?? '') as number | '' | null,
             expected_close_date: opportunity?.expected_close_date ?? '',
         },
@@ -98,7 +98,7 @@ export default function OpportunityEdit() {
     //     lead_id: (opportunity?.lead_id ?? '') as number | '' | null,
     //     estimated_value: opportunity?.estimated_value ?? '',
     //     currency: opportunity?.currency ?? currencyOptions[0] ?? 'USD',
-    //     stage: opportunity?.stage ?? stageOptions[0] ?? 'prospect',
+    //     stage: opportunity?.stage ?? stageOptions[0] ?? 'qualification',
     //     owner_id: (opportunity?.owner_id ?? '') as number | '' | null,
     //     expected_close_date: opportunity?.expected_close_date ?? '',
     // });

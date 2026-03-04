@@ -24,6 +24,7 @@ class PipelineStage extends Model
     protected $fillable = [
         'key',
         'name',
+        'color',
         'order',
     ];
 

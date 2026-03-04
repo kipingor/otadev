@@ -30,7 +30,7 @@ class PipelineAuthorizationTest extends TestCase
 
         $this->actingAs($intruder)
             ->putJson("/api/v1/leads/{$lead->id}/move", [
-                'stage' => PipelineStage::PROPOSAL->value,
+                'stage_id' => $proposal_stage,
             ])
             ->assertForbidden();
     }

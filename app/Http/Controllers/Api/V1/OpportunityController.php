@@ -7,12 +7,14 @@ use App\Models\Opportunity;
 use App\Services\Opportunity\OpportunityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class OpportunityController extends Controller
 {
     public function __construct(
         protected OpportunityService $opportunityService
-    ) {}
+    ) {
+    }
 
     /**
      * Display a listing of opportunities
@@ -40,16 +42,25 @@ class OpportunityController extends Controller
         $this->authorize('create', Opportunity::class);
 
         $validated = $request->validate([
-            'lead_id' => 'required|exists:leads,id',
-            'title' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'value' => 'required|numeric|min:0',
-            'probability' => 'required|integer|min:0|max:100',
+            'lead_id'             => 'required|exists:leads,id',
+            'title'               => 'required|string|max:255',
+            'description'         => 'nullable|string|max:5000',
+            'estimated_value'     => 'required|numeric|min:0',  // DB column name (was 'amount')
+            'probability'         => 'nullable|integer|min:0|max:100',
+            'stage'               => 'required|in:qualification,proposal,negotiation,closed_won,closed_lost',
             'expected_close_date' => 'nullable|date',
-            'status' => 'required|in:open,won,lost,abandoned',
+            'contact_name'        => 'nullable|string|max:255',
+            'contact_email'       => 'nullable|email|max:255',
+            'contact_phone'       => 'nullable|string|max:50',
+            'metadata'            => 'nullable|array',
         ]);
 
+        // Auto-assign owner and creator
+        $validated['owner_id'] = $request->input('owner_id', Auth::id());
+        $validated['created_by'] = Auth::id();
+
         $opportunity = Opportunity::create($validated);
+        $opportunity->load(['lead', 'owner']);
 
         return response()->json([
             'success' => true,
@@ -81,20 +92,25 @@ class OpportunityController extends Controller
         $this->authorize('update', $opportunity);
 
         $validated = $request->validate([
-            'title' => 'sometimes|required|string|max:255',
-            'description' => 'nullable|string',
-            'value' => 'sometimes|required|numeric|min:0',
-            'probability' => 'sometimes|required|integer|min:0|max:100',
+            'title'               => 'sometimes|required|string|max:255',
+            'description'         => 'nullable|string|max:5000',
+            'estimated_value'     => 'sometimes|required|numeric|min:0',  // DB column name (was 'amount')
+            'probability'         => 'nullable|integer|min:0|max:100',
+            'stage'               => 'sometimes|required|in:qualification,proposal,negotiation,closed_won,closed_lost',
             'expected_close_date' => 'nullable|date',
-            'status' => 'sometimes|required|in:open,won,lost,abandoned',
+            'contact_name'        => 'nullable|string|max:255',
+            'contact_email'       => 'nullable|email|max:255',
+            'contact_phone'       => 'nullable|string|max:50',
+            'metadata'            => 'nullable|array',
         ]);
 
-        $data = $opportunity->update($validated);
+        $opportunity->update($validated);
+        $opportunity->load(['lead', 'owner']);
 
         return response()->json([
             'success' => true,
             'message' => 'Opportunity updated successfully',
-            'data' => $data,
+            'data' => $opportunity,
         ]);
     }
 
@@ -164,6 +180,71 @@ class OpportunityController extends Controller
         return response()->json([
             'success' => true,
             'data' => $stats,
+        ]);
+    }
+
+    /**
+     * Move opportunity to a different stage
+     */
+    public function moveStage(Request $request, Opportunity $opportunity): JsonResponse
+    {
+        $this->authorize('update', $opportunity);
+
+        $validated = $request->validate([
+            'stage' => 'required|in:qualification,proposal,negotiation,closed_won,closed_lost',
+        ]);
+
+        $opportunity->update([
+            'stage' => $validated['stage'],
+            'probability' => \App\Enums\OpportunityStage::from($validated['stage'])->defaultProbability(),
+        ]);
+
+        $opportunity->load(['lead', 'owner']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Opportunity stage updated',
+            'data' => $opportunity,
+        ]);
+    }
+
+    /**
+     * Get opportunities for kanban board
+     */
+    public function kanban(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', Opportunity::class);
+
+        $query = Opportunity::with(['lead', 'owner'])
+            ->where('owner_id', Auth::id());
+
+        // Apply filters
+        if ($request->has('search')) {
+            $query->search($request->search);
+        }
+
+        if ($request->has('stage')) {
+            $query->byStage(\App\Enums\OpportunityStage::from($request->stage));
+        }
+
+        $opportunities = $query->get()->groupBy(fn ($opp) => $opp->stage->value);
+
+        $kanban = [];
+        foreach (\App\Enums\OpportunityStage::cases() as $stage) {
+            $kanban[$stage->value] = [
+                'stage' => $stage->value,
+                'label' => $stage->label(),
+                'color' => $stage->color(),
+                'opportunities' => $opportunities->get($stage->value, collect())->values(),
+                'total_count' => $opportunities->get($stage->value, collect())->count(),
+                'total_value' => $opportunities->get($stage->value, collect())->sum('amount'),
+                'weighted_value' => $opportunities->get($stage->value, collect())->sum('weighted_value'),
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $kanban,
         ]);
     }
 }

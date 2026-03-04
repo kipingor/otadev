@@ -21,6 +21,8 @@ class TaskController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', Task::class);
+        
         $data = $request->validate([
             'project_id' => 'required|integer|exists:projects,id',
             'title' => 'required|string|max:255',
@@ -29,8 +31,6 @@ class TaskController extends Controller
             'endAt' => 'nullable|date',
             'estimated_hours' => 'nullable|integer',
         ]);
-
-        $this->authorize('create', Task::class);
 
         $task = $this->service->create($data);
 

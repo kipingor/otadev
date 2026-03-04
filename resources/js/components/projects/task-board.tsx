@@ -6,7 +6,7 @@ import {
     KanbanProvider,
 } from '@/components/ui/shadcn-io/kanban/index';
 import { AnimatePresence, motion } from 'framer-motion';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 
 // Fallback AppLayout
 let AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => (
@@ -241,11 +241,14 @@ export default function TaskBoard({
     projectId,
 }: {
     projectId: number | string;
-}) {   
+}) {
+    // ✅ Get tasks and update function from hook
     const { tasks, loading, error, updateTaskStatus, refetch } = useTasks(projectId);
-    
+
+    // ✅ Local state for optimistic updates (required by useTaskMutations)
     const [tasksByStatus, setTasksByStatus] = React.useState<Record<string, Task[]>>({});
-    
+
+    // ✅ Sync tasksByStatus state when remote tasks change
     React.useEffect(() => {
         const grouped = (tasks ?? []).reduce<Record<string, Task[]>>((acc, task) => {
             const status = (task.status ?? 'todo').toLowerCase();
@@ -255,7 +258,8 @@ export default function TaskBoard({
         }, {});
         setTasksByStatus(grouped);
     }, [tasks]);
-    
+
+    // ✅ Now pass both state and setter — no more "is not a function"
     const { updateTask, createTask } = useTaskMutations(
         tasksByStatus,
         setTasksByStatus,
@@ -321,32 +325,54 @@ export default function TaskBoard({
         });
     };
 
-    // ✅ FIXED: Handle data change with proper backend sync
-    const handleDataChange = async (newData: any[]) => {
-        // Find moved items
-        const movedItems = newData.filter((item) => {
-            const original = kanbanData.find((x) => x.id === item.id);
-            return original && original.column !== item.column;
-        });
+    // ── Drag handlers ───────────────────────────────────────────────────────
+    //
+    // ROOT CAUSE OF RESET BUG:
+    // KanbanProvider.handleDragOver mutates data items IN-PLACE
+    // (newData[activeIndex].column = overColumn on a shallow-copied array).
+    // Since kanbanData items are shared object references, by the time
+    // onDataChange fires, original.column === item.column is always true,
+    // so movedItems was always empty and updateTaskStatus was never called.
+    //
+    // FIX: snapshot the card's original column in onDragStart, then use
+    // onDragEnd (which fires once, after the drop) to compare and persist.
+    const dragStartRef = useRef<{ cardId: string; column: string } | null>(null);
 
-        // Update backend for each moved item
-        for (const moved of movedItems) {
-            try {
-                // ✅ Use updateTaskStatus with correct parameters
-                await updateTaskStatus({
-                    taskId: Number(moved.id),
-                    newStatus: moved.column,
-                });
-            } catch (err: any) {
-                console.error('Failed to move task:', err);
-                toast({
-                    title: 'Failed to move task',
-                    description: err?.message ?? 'Unknown error',
-                    variant: 'destructive',
-                });
-                // Refetch to revert optimistic update
-                refetch();
-            }
+    const handleDragStart = (event: any) => {
+        const card = kanbanData.find((x) => x.id === String(event.active?.id));
+        if (card) {
+            dragStartRef.current = { cardId: card.id, column: card.column };
+        }
+    };
+
+    const handleDragEnd = async (event: any) => {
+        const { active } = event;
+        if (!active || !dragStartRef.current) return;
+
+        const originalColumn = dragStartRef.current.column;
+
+        // After KanbanProvider's internal dragOver mutations, the card's
+        // column property in kanbanData already reflects the drop target.
+        const movedCard = kanbanData.find((x) => x.id === String(active.id));
+        const newColumn = movedCard?.column;
+
+        dragStartRef.current = null;
+
+        if (!newColumn || newColumn === originalColumn) return;
+
+        try {
+            await updateTaskStatus({
+                taskId: Number(active.id),
+                newStatus: newColumn,
+            });
+        } catch (err: any) {
+            console.error('Failed to move task:', err);
+            toast({
+                title: 'Failed to move task',
+                description: err?.message ?? 'Unknown error',
+                variant: 'destructive',
+            });
+            refetch(); // revert to server state on failure
         }
     };
 
@@ -467,7 +493,8 @@ export default function TaskBoard({
                 <KanbanProvider
                     columns={kanbanColumns}
                     data={kanbanData}
-                    onDataChange={handleDataChange}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
                 >
                     {(column) => {
                         const allItems = kanbanData.filter(

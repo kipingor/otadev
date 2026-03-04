@@ -14,6 +14,7 @@ use App\Http\Controllers\Web\ActivityController;
 use App\Http\Controllers\Web\ConversationController;
 use App\Http\Controllers\Web\SupplierController;
 use App\Http\Controllers\Web\VendorController;
+use App\Http\Controllers\LeadAnalyticsController;
 
 // Welcome page for unauthenticated users — expose at root as `home`
 Route::get('/', function () {
@@ -24,6 +25,15 @@ Route::get('/', function () {
         'canRegister' => Features::enabled(Features::registration()),
     ]);
 })->name('home');
+
+Route::get('/debug-auth', function () {
+    return response()->json([
+        'authenticated' => Auth::check(),
+        'user' => Auth::user(),
+        'session_id' => session()->getId(),
+        'has_csrf' => csrf_token(),
+    ]);
+})->middleware('web');
 
 // Keep legacy /welcome path available (not named)
 Route::get('/welcome', function () {
@@ -41,14 +51,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 
 
+// Simple dashboard route alias for testing/redirects
+Route::get('/dashboard', function () {
+    return Inertia::render('dashboard/index');
+})->middleware(['auth'])->name('dashboard');
+
 // Authenticated routes
 Route::middleware(['auth', 'verified'])->name('web.')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    
+
     // Optional: API endpoint for metrics
     Route::get('/api/dashboard/metrics', [DashboardController::class, 'metrics'])
         ->name('dashboard.metrics');
-    
+
     // Optional: Clear cache
     Route::post('/api/dashboard/clear-cache', [DashboardController::class, 'clearCache'])
         ->name('dashboard.clear-cache');
@@ -67,9 +82,17 @@ Route::middleware(['auth', 'verified'])->name('web.')->group(function () {
     Route::get('hr', [HRController::class, 'index'])->name('hr.index');
     Route::get('accounting', [AccountingController::class, 'index'])->name('accounting.index');
 
+    Route::get('reports', [\App\Http\Controllers\Web\ReportsController::class, 'index'])->name('reports.index');
+
     Route::get('activities', [ActivityController::class, 'index'])->name('activities.index');
     Route::get('conversations', [ConversationController::class, 'index'])->name('conversations.index');
     Route::get('vendors', [VendorController::class, 'index'])->name('vendors.index');
+
+    Route::get('/analytics/leads', [LeadAnalyticsController::class, 'getLeadAnalytics'])
+        ->name('analytics.leads');
+
+    Route::get('/analytics/performance', [LeadAnalyticsController::class, 'getPerformanceMetrics'])
+        ->name('analytics.performance');
 });
 
 require __DIR__ . '/settings.php';

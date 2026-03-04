@@ -16,8 +16,11 @@ class LeadRoutesTest extends TestCase
 
     public function test_statistics_route_is_accessible()
     {
+        $user = User::factory()->create();
+        $user->assignRole('admin');
+        
         Sanctum::actingAs(
-            User::factory()->create(),
+            $user,
             ['*'],
         );
 

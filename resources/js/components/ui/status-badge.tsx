@@ -150,12 +150,6 @@ export const TASK_STATUS_CONFIG: Record<string, StatusConfig> = {
 
 // Opportunity Status Configuration
 export const OPPORTUNITY_STATUS_CONFIG: Record<string, StatusConfig> = {
-    prospecting: {
-        label: 'Prospecting',
-        variant: 'secondary',
-        icon: Circle,
-        className: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-    },
     qualification: {
         label: 'Qualification',
         variant: 'info',

@@ -15,12 +15,19 @@ class MovePipelineRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'stage' => ['required', 'string'],
+            'stage_id' => ['required', 'exists:pipeline_stages,id'],
         ];
+    }
+
+    public function stageId(): int
+    {
+        return $this->input('stage_id');
     }
 
     public function stage(): PipelineStage
     {
-        return PipelineStage::from($this->input('stage'));
+        $stageId = $this->input('stage_id');
+        $stageModel = \App\Models\PipelineStage::findOrFail($stageId);
+        return PipelineStage::from($stageModel->key);
     }
 }

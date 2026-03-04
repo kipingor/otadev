@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\LeadDocumentStatus;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -32,7 +33,7 @@ class UploadController extends Controller
                 'mime_type' => $file->getClientMimeType(),
                 'size' => $file->getSize(),
                 'storage_path' => $path,
-                'status' => LeadDocument::STATUS_QUEUED,
+                'status' => LeadDocumentStatus::QUEUED,
             ]);
 
             // best-effort extract

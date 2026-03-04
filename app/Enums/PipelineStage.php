@@ -16,7 +16,7 @@ enum PipelineStage: string
      */
     public function label(): string
     {
-        return match($this) {
+        return match ($this) {
             self::INTAKE => 'Intake',
             self::DISCOVERY => 'Discovery',
             self::PROPOSAL => 'Proposal',
@@ -28,7 +28,7 @@ enum PipelineStage: string
 
     public function color(): string
     {
-        return match($this) {
+        return match ($this) {
             self::INTAKE => 'blue',
             self::DISCOVERY => 'purple',
             self::PROPOSAL => 'orange',
@@ -53,7 +53,7 @@ enum PipelineStage: string
 
     public function order(): int
     {
-        return match($this) {
+        return match ($this) {
             self::INTAKE => 1,
             self::DISCOVERY => 2,
             self::PROPOSAL => 3,
@@ -65,7 +65,7 @@ enum PipelineStage: string
 
     public function nextStage(): ?self
     {
-        return match($this) {
+        return match ($this) {
             self::INTAKE => [self::DISCOVERY, self::CLOSED_LOST],
             self::DISCOVERY => [self::PROPOSAL, self::CLOSED_LOST],
             self::PROPOSAL => [self::NEGOTIATION, self::CLOSED_LOST],
@@ -75,7 +75,7 @@ enum PipelineStage: string
     }
 
     public function canMoveTo(self $stage): bool
-    {       
+    {
         return in_array($stage, $this->nextStage() ?? [], true);
     }
 
@@ -87,5 +87,22 @@ enum PipelineStage: string
             self::PROPOSAL,
             self::NEGOTIATION,
         ];
+    }
+
+    public static function values(): array
+    {
+        return array_column(self::cases(), 'value');
+    }
+
+    public static function toArray(): array
+    {
+        return array_map(
+            fn($case) => [
+                'value' => $case->value,
+                'label' => $case->label(),
+                'color' => $case->color(),
+            ],
+            self::cases()
+        );
     }
 }

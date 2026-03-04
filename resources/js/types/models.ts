@@ -18,8 +18,11 @@ export enum PipelineStage {
     CLOSED_LOST = 'closed_lost',
 }
 
-export enum LeadType {
-    DOCUMENT = 'document',
-    CONVERSATION = 'conversation',
-}
+export const LeadType = {
+    DOCUMENT: 'document',
+    CONVERSATION: 'conversation',
+} as const;
+export type LeadType = typeof LeadType[keyof typeof LeadType];
+
+
 

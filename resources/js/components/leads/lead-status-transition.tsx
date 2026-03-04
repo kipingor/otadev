@@ -22,46 +22,21 @@ import { LeadStatus } from '@/types/models';
 import { Lead } from '@/types/models.types';
 import { router } from '@inertiajs/react';
 import { ChevronDown, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import axios from 'axios';
 
 interface LeadStatusTransitionProps {
     lead: Lead;
     onUpdate?: () => void;
 }
 
-// Define valid status transitions
-const VALID_TRANSITIONS: Record<LeadStatus, LeadStatus[]> = {
-    [LeadStatus.NEW]: [
-        LeadStatus.CONTACTED,
-        LeadStatus.QUALIFIED,
-        LeadStatus.LOST,
-        LeadStatus.ARCHIVED,
-    ],
-    [LeadStatus.CONTACTED]: [
-        LeadStatus.QUALIFIED,
-        LeadStatus.LOST,
-        LeadStatus.ARCHIVED,
-    ],
-    [LeadStatus.QUALIFIED]: [
-        LeadStatus.PROPOSAL_SENT,
-        LeadStatus.LOST,
-        LeadStatus.ARCHIVED,
-    ],
-    [LeadStatus.PROPOSAL_SENT]: [
-        LeadStatus.NEGOTIATION,
-        LeadStatus.LOST,
-        LeadStatus.ARCHIVED,
-    ],
-    [LeadStatus.NEGOTIATION]: [
-        LeadStatus.WON,
-        LeadStatus.LOST,
-        LeadStatus.ARCHIVED,
-    ],
-    [LeadStatus.WON]: [LeadStatus.ARCHIVED],
-    [LeadStatus.LOST]: [LeadStatus.ARCHIVED],
-    [LeadStatus.ARCHIVED]: [],
-};
+interface StatusTransitionOption {
+    value: LeadStatus;
+    label: string;
+    color: string;
+    timestamp_field: string | null;
+}
 
 export function LeadStatusTransition({ lead, onUpdate }: LeadStatusTransitionProps) {
     const [open, setOpen] = useState(false);
@@ -69,8 +44,28 @@ export function LeadStatusTransition({ lead, onUpdate }: LeadStatusTransitionPro
     const [selectedStatus, setSelectedStatus] = useState<LeadStatus | null>(null);
     const [reason, setReason] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [validTransitions, setValidTransitions] = useState<StatusTransitionOption[]>([]);
+    const [isLoadingTransitions, setIsLoadingTransitions] = useState(true);
 
-    const validTransitions = VALID_TRANSITIONS[lead.status as LeadStatus] || [];
+    // Fetch valid transitions from API
+    useEffect(() => {
+        const fetchTransitions = async () => {
+            setIsLoadingTransitions(true);
+            try {
+                const response = await axios.get(
+                    `/api/v1/leads/${lead.id}/available-transitions`
+                );
+                setValidTransitions(response.data.data);
+            } catch (error) {
+                console.error('Failed to fetch transitions:', error);
+                toast.error('Failed to load available status transitions');
+            } finally {
+                setIsLoadingTransitions(false);
+            }
+        };
+
+        fetchTransitions();
+    }, [lead.id, lead.status]);
 
     const handleStatusSelect = (status: LeadStatus) => {
         if (status === LeadStatus.LOST) {
@@ -94,16 +89,33 @@ export function LeadStatusTransition({ lead, onUpdate }: LeadStatusTransitionPro
                     reason: lostReason,
                 },
                 {
-                    onSuccess: () => {
-                        toast.success(`Lead status updated to ${status}`);
+                    onSuccess: (response) => {
+                        const message = String(response.props?.message || `Lead status updated to ${status}`);
+                        toast.success(message);
                         setIsDialogOpen(false);
                         setReason('');
                         onUpdate?.();
                     },
-                    onError: (errors) => {
-                        toast.error(
-                            errors.message || 'Failed to update lead status',
-                        );
+                    onError: (errors: any) => {
+                        // Check for validation error with details
+                        if (errors.details?.allowed_transitions) {
+                            const allowedLabels = errors.details.allowed_transitions
+                                .map((t: any) => t.label)
+                                .join(', ');
+                            
+                            toast.error(
+                                `Invalid transition. Allowed transitions: ${allowedLabels}`,
+                                { duration: 6000 }
+                            );
+                        } else if (errors.errors?.status) {
+                            // Validation error
+                            toast.error(errors.errors.status[0] || 'Invalid status transition');
+                        } else {
+                            // Generic error
+                            toast.error(
+                                errors.message || 'Failed to update lead status',
+                            );
+                        }
                     },
                     onFinish: () => {
                         setIsSubmitting(false);
@@ -111,6 +123,7 @@ export function LeadStatusTransition({ lead, onUpdate }: LeadStatusTransitionPro
                 },
             );
         } catch (error) {
+            console.error('Transition error:', error);
             toast.error('Failed to update lead status');
             setIsSubmitting(false);
         }
@@ -123,6 +136,15 @@ export function LeadStatusTransition({ lead, onUpdate }: LeadStatusTransitionPro
         }
         handleTransition(LeadStatus.LOST, reason);
     };
+
+    if (isLoadingTransitions) {
+        return (
+            <Button variant="outline" disabled className="gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <LeadStatusBadge status={lead.status} showIcon={false} />
+            </Button>
+        );
+    }
 
     if (validTransitions.length === 0) {
         return <LeadStatusBadge status={lead.status} />;
@@ -140,13 +162,13 @@ export function LeadStatusTransition({ lead, onUpdate }: LeadStatusTransitionPro
                 <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuLabel>Change Status</DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    {validTransitions.map((status) => (
+                    {validTransitions.map((transition) => (
                         <DropdownMenuItem
-                            key={status}
-                            onClick={() => handleStatusSelect(status)}
+                            key={transition.value}
+                            onClick={() => handleStatusSelect(transition.value)}
                             disabled={isSubmitting}
                         >
-                            <LeadStatusBadge status={status} />
+                            <LeadStatusBadge status={transition.value} />
                         </DropdownMenuItem>
                     ))}
                 </DropdownMenuContent>

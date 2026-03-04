@@ -3,7 +3,11 @@
  * Aligned with Laravel backend models
  */
 
+import { PipelineStage } from "@/types";
+import { LeadStatus, LeadType } from "./models";
+
 export interface User {
+    avatar: string;
     id: number;
     name: string;
     email: string;
@@ -35,21 +39,25 @@ export interface Lead {
     pipeline_stage_id: number;
     metadata: Record<string, any> | null;
     ai_reviewed: boolean;
+    is_starred: boolean;
     order: number;
     contacted_at: string | null;
     qualified_at: string | null;
+    proposal_sent_at: string | null;
+    negotiation_started_at: string | null;
     converted_to_opportunity_at: string | null;
     won_at: string | null;
     lost_at: string | null;
     archived_at: string | null;
+    estimated_value: number | null;
     created_at: string;
     updated_at: string;
     deleted_at: string | null;
     
     // Relationships
     user?: User;
-    owner?: User;
-    pipeline_stage?: PipelineStage;
+    owner: User;
+    pipeline_stage: Pipeline;
     questions?: LeadQuestion[];
     lead_documents?: LeadDocument[];
     opportunity?: Opportunity;
@@ -94,7 +102,7 @@ export interface Opportunity {
     lead_id: number;
     title: string;
     description: string | null;
-    value: number;
+    estimated_value: number;
     probability: number;
     expected_close_date: string | null;
     status: string;
@@ -203,10 +211,12 @@ export interface LeadFormData {
     pipeline_stage_id: number;
     status?: LeadStatus;
     metadata?: Record<string, any>;
+    estimated_value?: number | null;
 }
 
 export interface LeadUpdateData extends Partial<LeadFormData> {
     ai_reviewed?: boolean;
+    is_starred?: boolean;
 }
 
 /**

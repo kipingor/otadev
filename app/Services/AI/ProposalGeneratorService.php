@@ -31,11 +31,11 @@ class ProposalGeneratorService
         $promptBase = "You are a professional proposal writer. Create a clear proposal outline and a full proposal draft for the following opportunity.\n\nOpportunity context:\n" . $context . "\n\nRequirements:\n" . json_encode($requirements);
 
         try {
-            $outline = $this->client->generate(
+            $outline = $this->client->chat(
                 "Create a numbered outline for the proposal:\n\n" . $promptBase,
                 array_merge(['max_tokens' => 800], $options)
             );
-            $draft = $this->client->generate(
+            $draft = $this->client->chat(
                 "Write a full professional proposal (cover letter, scope, deliverables, timeline, cost estimate, T&Cs):\n\n" . $promptBase,
                 array_merge(['max_tokens' => 1500], $options)
             );

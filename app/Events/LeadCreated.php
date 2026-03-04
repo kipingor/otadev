@@ -18,12 +18,13 @@ class LeadCreated implements ShouldBroadcast
     /**
      * The lead that was created.
      */
-    public Lead $lead;
 
     /**
      * Create a new event instance.
      */
-    public function __construct(Lead $lead)
+    public function __construct(
+        public Lead $lead
+    )
     {
         $this->lead = $lead->loadMissing(['owner', 'pipelineStage', 'user']);
     }

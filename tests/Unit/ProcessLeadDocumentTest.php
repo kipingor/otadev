@@ -6,6 +6,7 @@ use App\Events\LeadDocumentProcessed;
 use App\Jobs\ProcessLeadDocument;
 use App\Models\Lead;
 use App\Models\LeadDocument;
+use App\Enums\LeadDocumentStatus;
 use App\Services\AI\OpenAIClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
@@ -28,7 +29,7 @@ class ProcessLeadDocumentTest extends TestCase
             'storage_path' => 'lead_documents/sample.txt',
             'mime_type' => 'text/plain',
             'extracted_text' => "This is a test document. It has several sentences to summarize.",
-            'status' => LeadDocument::STATUS_QUEUED ?? 'queued',
+            'status' => LeadDocumentStatus::QUEUED,
         ]);
 
         // Create a mock OpenAIClient
@@ -46,12 +47,12 @@ class ProcessLeadDocumentTest extends TestCase
 
         $document->refresh();
 
-        $this->assertEquals(LeadDocument::STATUS_SUCCEEDED ?? 'succeeded', $document->status);
+        $this->assertEquals(LeadDocumentStatus::SUCCEEDED ?? 'succeeded', $document->status);
         $this->assertIsArray($document->ai_summary);
         $this->assertStringContainsString('concise summary', strtolower($document->ai_summary['summary']));
 
         Event::assertDispatched(LeadDocumentProcessed::class, function ($e) use ($document) {
-            return $e->document->id === $document->id && in_array($e->status, [LeadDocument::STATUS_SUCCEEDED ?? 'succeeded', LeadDocument::STATUS_FAILED ?? 'failed']);
+            return $e->document->id === $document->id && in_array($e->status, [LeadDocumentStatus::SUCCEEDED ?? 'succeeded', LeadDocumentStatus::FAILED ?? 'failed']);
         });
     }
 }

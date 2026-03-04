@@ -17,10 +17,10 @@ class LeadDocumentUploaded
     /**
      * Create a new event instance.
      */
-    public function __construct()
-    {
-        //
-    }
+    public function __construct(
+        public int $leadId,
+        public int $documentId
+    ) {}
 
     /**
      * Get the channels the event should broadcast on.
@@ -30,7 +30,15 @@ class LeadDocumentUploaded
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('channel-name'),
+            new PrivateChannel('leads.' . $this->leadId),
+        ];
+    }
+
+    public function broadcastWith(): array
+    {
+        return [
+            'lead_id' => $this->leadId,
+            'document_id' => $this->documentId,
         ];
     }
 }

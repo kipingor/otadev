@@ -14,9 +14,16 @@ class ProjectPolicy
 
     public function view(User $user, Project $project): bool
     {
-        return $user->hasRole('admin') ||
-               $project->owner_id === $user->id ||
-               $project->client_id === $user->id;
+        // Make sure roles are loaded
+        $user->load('roles');
+
+        // Check roles
+        if ($user->roles()->where('name', 'admin')->exists()) {
+            return true;
+        }
+
+        return $project->owner_id === $user->id ||
+            $project->client_id === $user->id;
     }
 
     public function create(User $user): bool
@@ -27,7 +34,7 @@ class ProjectPolicy
     public function update(User $user, Project $project): bool
     {
         return $user->hasRole('admin') ||
-               $project->owner_id === $user->id;
+            $project->owner_id === $user->id;
     }
 
     public function delete(User $user, Project $project): bool

@@ -20,7 +20,7 @@ class LeadPolicy
      */
     public function view(User $user, Lead $lead): bool
     {
-        return $user->id === $lead->owner_id 
+        return $user->id === $lead->owner_id
             || $user->hasRole('admin');
     }
 
@@ -37,8 +37,9 @@ class LeadPolicy
      */
     public function update(User $user, Lead $lead): bool
     {
-        return $user->id === $lead->owner_id 
-            || $user->hasRole('admin');
+        return $user->hasRole('admin')
+            || $user->id === $lead->owner_id
+            || $user->id === $lead->created_by;
     }
 
     /**
@@ -46,7 +47,7 @@ class LeadPolicy
      */
     public function delete(User $user, Lead $lead): bool
     {
-        return $user->id === $lead->owner_id 
+        return $user->id === $lead->owner_id
             || $user->hasRole('admin');
     }
 
