@@ -1,54 +1,64 @@
-// task-board.tsx
-"use client";
-
-import React, { useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
-    KanbanProvider,
     KanbanBoard,
-    KanbanHeader,
-    KanbanCards,
     KanbanCard,
-} from "@/components/ui/shadcn-io/kanban/index"; // <-- adjust if your kanban components live elsewhere
-// Fallback AppLayout (try dynamic require for layout so file can be used in different bundler configs)
-let AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => <div>{children}</div>;
-try {
-    AppLayout = require("@/layouts/app-layout").default || AppLayout;
-} catch { }
+    KanbanCards,
+    KanbanHeader,
+    KanbanProvider,
+} from '@/components/ui/shadcn-io/kanban/index';
+import { AnimatePresence, motion } from 'framer-motion';
+import React, { useMemo, useState } from 'react';
 
-// Static imports for hooks so bundlers resolve them reliably
-import useTasks from '@/hooks/useTasks';
+// Fallback AppLayout
+let AppLayout: React.FC<React.PropsWithChildren> = ({ children }) => (
+    <div>{children}</div>
+);
+try {
+    AppLayout = require('@/layouts/app-layout').default || AppLayout;
+} catch {}
+
+// Static imports for hooks
 import useTaskMutations from '@/hooks/use-task-mutations';
+import { useTasks } from '@/hooks/use-tasks';
 
 let toast = ({ title, description, variant }: any) => {
-    if (variant === "destructive") alert(`${title}\n${description ?? ""}`);
+    if (variant === 'destructive') alert(`${title}\n${description ?? ''}`);
 };
 try {
-    toast = require("@/components/ui/toast").toast || toast;
-} catch { }
+    toast = require('@/components/ui/toast').toast || toast;
+} catch {}
 
 /**
  * Utility helpers
  */
 const formatDate = (d?: string | Date | null) => {
-    if (!d) return "";
-    const date = typeof d === "string" ? new Date(d) : d;
+    if (!d) return '';
+    const date = typeof d === 'string' ? new Date(d) : d;
     if (Number.isNaN(date.getTime())) return String(d);
     return date.toLocaleDateString();
 };
 
 const initials = (name?: string) =>
-    (name || "U")
-        .split(" ")
+    (name || 'U')
+        .split(' ')
         .map((p) => p[0])
         .slice(0, 2)
-        .join("")
+        .join('')
         .toUpperCase();
 
 /**
  * Type
  */
-type Task = { id: string | number; title?: string; description?: string; assignee?: { name: string; avatarUrl?: string }; labels?: string[]; due_at?: string | null; priority?: string; status?: string;[key: string]: any };
+type Task = {
+    id?: string | number;
+    title?: string;
+    description?: string;
+    assignee?: { name: string; avatarUrl?: string };
+    labels?: string[];
+    due_at?: string | null;
+    priority?: string;
+    status?: string;
+    [key: string]: any;
+};
 
 /**
  * New Task form component (inline)
@@ -58,10 +68,10 @@ const NewTaskForm: React.FC<{
     onCreate: (payload: Partial<Task>) => Promise<void> | void;
     onClose?: () => void;
 }> = ({ columnId, onCreate, onClose }) => {
-    const [title, setTitle] = useState("");
-    const [assignee, setAssignee] = useState("");
-    const [labels, setLabels] = useState("");
-    const [priority, setPriority] = useState("Normal");
+    const [title, setTitle] = useState('');
+    const [assignee, setAssignee] = useState('');
+    const [labels, setLabels] = useState('');
+    const [priority, setPriority] = useState('Normal');
     const [loading, setLoading] = useState(false);
 
     const submit = async (e?: React.FormEvent) => {
@@ -72,20 +82,25 @@ const NewTaskForm: React.FC<{
             await onCreate({
                 title: title.trim(),
                 assignee: assignee ? { name: assignee } : undefined,
-                labels: labels ? labels.split(",").map((l) => l.trim()).filter(Boolean) : undefined,
+                labels: labels
+                    ? labels
+                          .split(',')
+                          .map((l) => l.trim())
+                          .filter(Boolean)
+                    : undefined,
                 priority,
                 status: columnId,
             });
-            setTitle("");
-            setAssignee("");
-            setLabels("");
-            setPriority("Normal");
+            setTitle('');
+            setAssignee('');
+            setLabels('');
+            setPriority('Normal');
             onClose?.();
         } catch (err: any) {
             toast({
-                title: "Failed to create task",
-                description: err?.message ?? "Unknown error",
-                variant: "destructive",
+                title: 'Failed to create task',
+                description: err?.message ?? 'Unknown error',
+                variant: 'destructive',
             });
         } finally {
             setLoading(false);
@@ -125,10 +140,18 @@ const NewTaskForm: React.FC<{
                 onChange={(e) => setLabels(e.target.value)}
             />
             <div className="flex gap-2">
-                <button type="submit" className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1 text-sm text-white disabled:opacity-60" disabled={loading}>
-                    {loading ? "Creating..." : "Create"}
+                <button
+                    type="submit"
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1 text-sm text-white disabled:opacity-60"
+                    disabled={loading}
+                >
+                    {loading ? 'Creating...' : 'Create'}
                 </button>
-                <button type="button" onClick={onClose} className="rounded-md border px-3 py-1 text-sm">
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded-md border px-3 py-1 text-sm"
+                >
                     Cancel
                 </button>
             </div>
@@ -153,25 +176,39 @@ const PrettyTaskCard: React.FC<{ item: any }> = ({ item }) => {
                 {/* Avatar */}
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold">
                     {task.assignee?.avatarUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={task.assignee.avatarUrl} alt={task.assignee.name} className="h-10 w-10 rounded-full object-cover" />
+                        <img
+                            src={task.assignee.avatarUrl}
+                            alt={task.assignee.name}
+                            className="h-10 w-10 rounded-full object-cover"
+                        />
                     ) : (
-                        <span>{initials(task.assignee?.name ?? task.title)}</span>
+                        <span>
+                            {initials(task.assignee?.name ?? task.title)}
+                        </span>
                     )}
                 </div>
 
                 <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                        <h4 className="text-sm font-semibold leading-tight">{task.title ?? `#${item.id}`}</h4>
-                        <div className="text-xs text-muted-foreground">{formatDate(task.due_at)}</div>
+                        <h4 className="text-sm leading-tight font-semibold">
+                            {task.title ?? `#${item.id}`}
+                        </h4>
+                        <div className="text-xs text-muted-foreground">
+                            {formatDate(task.due_at)}
+                        </div>
                     </div>
 
-                    <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{task.description}</p>
+                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                        {task.description}
+                    </p>
 
                     <div className="mt-3 flex flex-wrap items-center gap-2">
                         {/* Labels */}
                         {(task.labels || []).slice(0, 3).map((l: string) => (
-                            <span key={l} className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">
+                            <span
+                                key={l}
+                                className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium"
+                            >
                                 {l}
                             </span>
                         ))}
@@ -179,12 +216,13 @@ const PrettyTaskCard: React.FC<{ item: any }> = ({ item }) => {
                         {/* Priority badge */}
                         {task.priority && (
                             <span
-                                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${task.priority === "Critical"
-                                    ? "bg-red-600 text-white"
-                                    : task.priority === "High"
-                                        ? "bg-amber-500 text-black"
-                                        : "bg-green-500 text-black"
-                                    }`}
+                                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                                    task.priority === 'Critical'
+                                        ? 'bg-red-600 text-white'
+                                        : task.priority === 'High'
+                                          ? 'bg-amber-500 text-black'
+                                          : 'bg-green-500 text-black'
+                                }`}
                             >
                                 {task.priority}
                             </span>
@@ -199,29 +237,49 @@ const PrettyTaskCard: React.FC<{ item: any }> = ({ item }) => {
 /**
  * Main board component
  */
-export default function TaskBoard({ projectId }: { projectId: number | string }) {
-    const { tasksByStatus, loading, error, setTasksByStatus } = useTasks(projectId);
-    const { updateTask, createTask } = useTaskMutations(tasksByStatus, setTasksByStatus);
+export default function TaskBoard({
+    projectId,
+}: {
+    projectId: number | string;
+}) {   
+    const { tasks, loading, error, updateTaskStatus, refetch } = useTasks(projectId);
+    
+    const [tasksByStatus, setTasksByStatus] = React.useState<Record<string, Task[]>>({});
+    
+    React.useEffect(() => {
+        const grouped = (tasks ?? []).reduce<Record<string, Task[]>>((acc, task) => {
+            const status = (task.status ?? 'todo').toLowerCase();
+            if (!acc[status]) acc[status] = [];
+            acc[status].push(task);
+            return acc;
+        }, {});
+        setTasksByStatus(grouped);
+    }, [tasks]);
+    
+    const { updateTask, createTask } = useTaskMutations(
+        tasksByStatus,
+        setTasksByStatus,
+    );
 
-    // Controls: search, label filter, assignee filter, swimlane field
-    const [search, setSearch] = useState("");
+    // Controls
+    const [search, setSearch] = useState('');
     const [labelFilter, setLabelFilter] = useState<string | null>(null);
     const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
-    const [swimlaneBy, setSwimlaneBy] = useState<"none" | "assignee" | "priority">("none");
+    const [swimlaneBy, setSwimlaneBy] = useState<'none' | 'assignee' | 'priority'>('none');
     const [openNewFor, setOpenNewFor] = useState<string | null>(null);
 
-    // basic debounce (if use-debounce not available)
+    // Debounced search
     const [debouncedSearch, setDebouncedSearch] = useState(search);
+    
     React.useEffect(() => {
-        renderedColumns.clear();
-    });
-
-    React.useEffect(() => {
-        const id = setTimeout(() => setDebouncedSearch(search.trim().toLowerCase()), 220);
+        const id = setTimeout(
+            () => setDebouncedSearch(search.trim().toLowerCase()),
+            220,
+        );
         return () => clearTimeout(id);
     }, [search]);
 
-    // Default column order when a project has no tasks yet
+    // Default column order
     const DEFAULT_STATUSES = ['todo', 'in_progress', 'review', 'done'];
 
     const kanbanColumns = useMemo(() => {
@@ -231,103 +289,115 @@ export default function TaskBoard({ projectId }: { projectId: number | string })
     }, [tasksByStatus]);
 
     const kanbanData = useMemo(() => {
-        return Object.entries(tasksByStatus ?? {}).flatMap(([status, tasks]: any[]) =>
-            (tasks ?? []).map((t: any) => ({
-                id: String(t.id),
-                name: t.title ?? t.id,
-                column: status,
-                task: t,
-            }))
+        return Object.entries(tasksByStatus ?? {}).flatMap(
+            ([status, tasks]: any[]) =>
+                (tasks ?? []).map((t: any) => ({
+                    id: String(t.id),
+                    name: t.title ?? t.id,
+                    column: status,
+                    task: t,
+                })),
         );
     }, [tasksByStatus]);
 
-    // Filtering function used before rendering
+    // Filtering function
     const filteredData = (items: any[]) => {
         return items.filter((item) => {
             const task = item.task as Task;
             if (debouncedSearch) {
-                const hay = `${task.title ?? ""} ${task.description ?? ""} ${task.assignee?.name ?? ""}`.toLowerCase();
+                const hay =
+                    `${task.title ?? ''} ${task.description ?? ''} ${task.assignee?.name ?? ''}`.toLowerCase();
                 if (!hay.includes(debouncedSearch)) return false;
             }
             if (labelFilter) {
-                if (!task.labels || !task.labels.includes(labelFilter)) return false;
+                if (!task.labels || !task.labels.includes(labelFilter))
+                    return false;
             }
             if (assigneeFilter) {
-                if (!task.assignee || (task.assignee.name !== assigneeFilter)) return false;
+                if (!task.assignee || task.assignee.name !== assigneeFilter)
+                    return false;
             }
             return true;
         });
     };
 
-    // onDataChange: optimistic UI and backend sync
+    // ✅ FIXED: Handle data change with proper backend sync
     const handleDataChange = async (newData: any[]) => {
-        // Map newData back into tasksByStatus structure
-        const newStatusMap: Record<string, any[]> = {};
-        for (const col of kanbanColumns) newStatusMap[col.id] = [];
-
-        newData.forEach((item) => {
-            const payloadTask = { ...(item.task || {}), status: item.column };
-            newStatusMap[item.column] = [...newStatusMap[item.column], payloadTask];
+        // Find moved items
+        const movedItems = newData.filter((item) => {
+            const original = kanbanData.find((x) => x.id === item.id);
+            return original && original.column !== item.column;
         });
 
-        try {
-            setTasksByStatus(newStatusMap);
-        } catch { }
-
-        // find a moved item and attempt backend update
-        const moved = newData.find((d) => {
-            const original = kanbanData.find((x) => x.id === d.id);
-            return original && original.column !== d.column;
-        });
-
-        if (moved) {
+        // Update backend for each moved item
+        for (const moved of movedItems) {
             try {
-                await updateTask(moved.id, { status: moved.column });
-            } catch (err: any) {
-                toast({
-                    title: "Failed to move task",
-                    description: err?.message ?? "Unknown error",
-                    variant: "destructive",
+                // ✅ Use updateTaskStatus with correct parameters
+                await updateTaskStatus({
+                    taskId: Number(moved.id),
+                    newStatus: moved.column,
                 });
+            } catch (err: any) {
+                console.error('Failed to move task:', err);
+                toast({
+                    title: 'Failed to move task',
+                    description: err?.message ?? 'Unknown error',
+                    variant: 'destructive',
+                });
+                // Refetch to revert optimistic update
+                refetch();
             }
         }
     };
 
-    // Create new task (tries createTask() if available, otherwise optimistic local add)
+    // ✅ FIXED: Create new task with proper mutation
     const handleCreateTask = async (payload: Partial<Task>) => {
-        // If consumer provides createTask, use it
-        if (typeof createTask === "function") {
-            await createTask({ ...payload, projectId });
-            // assume hook refreshes or updates setTasksByStatus
-            return;
-        }
-
-        // fallback: optimistic add to local state
-        const newId = `temp-${Date.now()}`;
-        const newTask: Task = {
-            id: newId,
-            title: payload.title || "New Task",
-            description: payload.description || "",
-            assignee: payload.assignee,
-            labels: payload.labels,
-            priority: payload.priority,
-            due_at: payload.due_at ?? null,
-            status: payload.status ?? kanbanColumns[0]?.id,
-        };
-
-        const next = { ...(tasksByStatus ?? {}) };
-        const statusKey = newTask.status as string;
-        next[statusKey] = [...(next[statusKey] || []), newTask];
         try {
-            setTasksByStatus(next);
-        } catch { }
+            // Use the createTask mutation if available
+            if (typeof createTask === 'function') {
+                await createTask({
+                    ...payload,
+                    project_id: projectId,
+                });
+            } else {
+                // Fallback: call the API directly
+                const response = await fetch(`/api/v1/projects/${projectId}/tasks`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(payload),
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to create task');
+                }
+            }
+
+            // Refetch to get the new task from server
+            refetch();
+            
+            toast({
+                title: 'Task created',
+                description: 'Task has been created successfully',
+            });
+        } catch (err: any) {
+            console.error('Failed to create task:', err);
+            toast({
+                title: 'Failed to create task',
+                description: err?.message ?? 'Unknown error',
+                variant: 'destructive',
+            });
+        }
     };
 
+    // Loading and error states
     if (loading) return <div className="p-4">Loading tasks...</div>;
     if (error) return <div className="p-4 text-red-600">{String(error)}</div>;
-    // Always render the board (even when empty) so the New Task button is available
 
-    // gather label & assignee options for filters
+    // Gather filter options
     const allLabels = new Set<string>();
     const allAssignees = new Set<string>();
     kanbanData.forEach((d) => {
@@ -347,19 +417,45 @@ export default function TaskBoard({ projectId }: { projectId: number | string })
                             placeholder="Search tasks, people, description..."
                             className="w-full max-w-md rounded-md border bg-white/5 p-2 text-sm"
                         />
-                        <select value={labelFilter ?? ""} onChange={(e) => setLabelFilter(e.target.value || null)} className="rounded-md border bg-white/5 p-2 text-sm">
+                        <select
+                            value={labelFilter ?? ''}
+                            onChange={(e) =>
+                                setLabelFilter(e.target.value || null)
+                            }
+                            className="rounded-md border bg-white/5 p-2 text-sm"
+                        >
                             <option value="">All labels</option>
-                            {[...allLabels].map((l) => <option key={l} value={l}>{l}</option>)}
+                            {[...allLabels].map((l) => (
+                                <option key={l} value={l}>
+                                    {l}
+                                </option>
+                            ))}
                         </select>
-                        <select value={assigneeFilter ?? ""} onChange={(e) => setAssigneeFilter(e.target.value || null)} className="rounded-md border bg-white/5 p-2 text-sm">
+                        <select
+                            value={assigneeFilter ?? ''}
+                            onChange={(e) =>
+                                setAssigneeFilter(e.target.value || null)
+                            }
+                            className="rounded-md border bg-white/5 p-2 text-sm"
+                        >
                             <option value="">All assignees</option>
-                            {[...allAssignees].map((a) => <option key={a} value={a}>{a}</option>)}
+                            {[...allAssignees].map((a) => (
+                                <option key={a} value={a}>
+                                    {a}
+                                </option>
+                            ))}
                         </select>
                     </div>
 
                     <div className="flex items-center gap-2">
                         <label className="text-sm">Swimlane:</label>
-                        <select value={swimlaneBy} onChange={(e) => setSwimlaneBy(e.target.value as any)} className="rounded-md border bg-white/5 p-2 text-sm">
+                        <select
+                            value={swimlaneBy}
+                            onChange={(e) =>
+                                setSwimlaneBy(e.target.value as any)
+                            }
+                            className="rounded-md border bg-white/5 p-2 text-sm"
+                        >
                             <option value="none">None</option>
                             <option value="assignee">Assignee</option>
                             <option value="priority">Priority</option>
@@ -374,30 +470,38 @@ export default function TaskBoard({ projectId }: { projectId: number | string })
                     onDataChange={handleDataChange}
                 >
                     {(column) => {
-                        // Recompute inside the render-prop using the column param
-                        const allItems = kanbanData.filter((x) => x.column === column.id);
+                        const allItems = kanbanData.filter(
+                            (x) => x.column === column.id,
+                        );
                         const visibleItems = filteredData(allItems);
 
-                        let swimlaneGroups: Record<string, any[]> = { All: visibleItems };
+                        let swimlaneGroups: Record<string, any[]> = {
+                            All: visibleItems,
+                        };
 
-                        if (swimlaneBy === "assignee") {
+                        if (swimlaneBy === 'assignee') {
                             swimlaneGroups = {};
                             visibleItems.forEach((v) => {
-                                const key = v.task?.assignee?.name ?? "Unassigned";
+                                const key =
+                                    v.task?.assignee?.name ?? 'Unassigned';
                                 swimlaneGroups[key] = swimlaneGroups[key] || [];
                                 swimlaneGroups[key].push(v);
                             });
-                        } else if (swimlaneBy === "priority") {
+                        } else if (swimlaneBy === 'priority') {
                             swimlaneGroups = {};
                             visibleItems.forEach((v) => {
-                                const key = v.task?.priority ?? "Normal";
+                                const key = v.task?.priority ?? 'Normal';
                                 swimlaneGroups[key] = swimlaneGroups[key] || [];
                                 swimlaneGroups[key].push(v);
                             });
                         }
 
                         return (
-                            <KanbanBoard id={column.id} key={column.id} className="min-w-[320px]">
+                            <KanbanBoard
+                                id={column.id}
+                                key={column.id}
+                                className="min-w-[230px]"
+                            >
                                 <KanbanHeader className="flex items-center justify-between">
                                     <span>
                                         {column.name} ({allItems.length})
@@ -407,7 +511,9 @@ export default function TaskBoard({ projectId }: { projectId: number | string })
                                         <button
                                             onClick={() =>
                                                 setOpenNewFor(
-                                                    openNewFor === column.id ? null : column.id
+                                                    openNewFor === column.id
+                                                        ? null
+                                                        : column.id,
                                                 )
                                             }
                                             className="rounded-md bg-primary px-2 py-1 text-xs text-white"
@@ -429,16 +535,17 @@ export default function TaskBoard({ projectId }: { projectId: number | string })
                                 )}
 
                                 {/* Cards */}
-                                <>
-                                    <ColumnSwimlaneRenderer
-                                        columnId={column.id}
-                                        swimlaneGroups={swimlaneGroups}
-                                    />
+                                <ColumnSwimlaneRenderer
+                                    columnId={column.id}
+                                    swimlaneGroups={swimlaneGroups}
+                                />
 
-                                    <KanbanCards id={column.id} className="hidden">
-                                        {(item) => null}
-                                    </KanbanCards>
-                                </>
+                                <KanbanCards
+                                    id={column.id}
+                                    className="hidden"
+                                >
+                                    {(item) => null}
+                                </KanbanCards>
                             </KanbanBoard>
                         );
                     }}
@@ -450,33 +557,36 @@ export default function TaskBoard({ projectId }: { projectId: number | string })
 
 /**
  * ColumnSwimlaneRenderer
- * This component renders swimlaneGroups inside a column. Because KanbanCards calls children per-item,
- * we guard so we only render once per column using a simple React ref keyed by column.
+ * ✅ FIXED: Removed renderedColumns logic - let React handle rendering
  */
-const renderedColumns = new Set<string>();
-const ColumnSwimlaneRenderer: React.FC<{ columnId: string; swimlaneGroups: Record<string, any[]> }> = ({ columnId, swimlaneGroups }) => {
-    // ensure we render the groups only once per column per render cycle
-    // clear the set on every render tick by using effect (so that KanbanCards can re-render next updates)    
-
-    if (renderedColumns.has(columnId)) {
-        // render nothing for duplicate calls
-        return <></>;
-    }
-    renderedColumns.add(columnId);
-
+const ColumnSwimlaneRenderer: React.FC<{
+    columnId: string;
+    swimlaneGroups: Record<string, any[]>;
+}> = ({ columnId, swimlaneGroups }) => {
     return (
         <div className="space-y-3 p-2">
             {Object.keys(swimlaneGroups).map((lane) => (
-                <div key={lane} className="rounded-md border bg-transparent p-2">
+                <div
+                    key={lane}
+                    className="rounded-md border bg-transparent p-2"
+                >
                     <div className="mb-2 flex items-center justify-between">
                         <h5 className="text-xs font-semibold">{lane}</h5>
-                        <div className="text-xs text-muted-foreground">{swimlaneGroups[lane].length} cards</div>
+                        <div className="text-xs text-muted-foreground">
+                            {swimlaneGroups[lane].length} cards
+                        </div>
                     </div>
 
                     <div className="space-y-2">
                         <AnimatePresence initial={false}>
                             {swimlaneGroups[lane].map((item: any) => (
-                                <motion.div key={item.id} layout initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+                                <motion.div
+                                    key={item.id}
+                                    layout
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -8 }}
+                                >
                                     <KanbanCard
                                         id={item.id}
                                         name={item.name}
