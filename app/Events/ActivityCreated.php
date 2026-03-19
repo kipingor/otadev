@@ -7,24 +7,20 @@ use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
-use App\Models\ActivityLog;
+use App\Models\AuditLog;
 
-class ActivityCreated  implements ShouldBroadcast
+/**
+ * FIX: Previously imported ActivityLog (deleted).
+ * Now uses the canonical AuditLog model.
+ */
+class ActivityCreated implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    /**
-     * Create a new event instance.
-     */
     public function __construct(
-        public ActivityLog $activity
+        public AuditLog $activity
     ) {}
 
-    /**
-     * Get the channels the event should broadcast on.
-     *
-     * @return array<int, \Illuminate\Broadcasting\Channel>
-     */
     public function broadcastOn(): Channel
     {
         return new Channel('activity');
@@ -37,6 +33,13 @@ class ActivityCreated  implements ShouldBroadcast
 
     public function broadcastWith(): array
     {
-        return $this->activity->toArray();
+        return [
+            'id'             => $this->activity->id,
+            'event'          => $this->activity->event,
+            'auditable_type' => class_basename($this->activity->auditable_type),
+            'auditable_id'   => $this->activity->auditable_id,
+            'user_id'        => $this->activity->user_id,
+            'created_at'     => $this->activity->created_at,
+        ];
     }
 }
