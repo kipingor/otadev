@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Lead;
 use App\Models\Opportunity;
 use App\Models\User;
+use App\Enums\OpportunityStage;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -14,194 +15,79 @@ class OpportunityController extends Controller
 {
     public function index(Request $request)
     {
-        $query = $this->getModelQuery(Opportunity::class);
-
-        $query = $this->orderByDesc($query, 'created_at');
-
-        $opportunities = $this->paginateOpportunities($query, 15);
-
-        if ($this->wantsJson($request)) {
-            return $this->jsonResponse($opportunities);
-        }
-
-        return $this->renderInertia('opportunities/index', [
-            'opportunities' => $opportunities,
-        ]);
+        // The opportunities/index page only renders <OpportunityKanban /> which
+        // fetches its own data via GET /api/v1/opportunities/kanban.
+        // No server-side props needed here.
+        return Inertia::render('opportunities/index');
     }
 
-    public function show(Request $request, $id)
+    public function show(Request $request, Opportunity $opportunity)
     {
-        $opportunity = $this->getModelWith(Opportunity::class, ['lead', 'owner'])->findOrFail($id);
-
-        if ($this->wantsJson($request)) {
-            return $this->jsonResponse($opportunity);
-        }
-
-        return $this->renderInertia('opportunities/show', [
-            'opportunity' => $opportunity,
-        ]);
+        $opportunity->load(['lead:id,title', 'owner:id,name,avatar', 'project:id,name']);
+        return Inertia::render('opportunities/show', ['opportunity' => $opportunity]);
     }
 
-    public function create(Request $request)
+    public function create()
     {
-        $formOptions = $this->formOptions();
-
-        return $this->renderInertia('opportunities/create', $formOptions);
+        return Inertia::render('opportunities/create', $this->formOptions());
     }
 
-    public function edit(Request $request, Opportunity $opportunity)
+    public function edit(Opportunity $opportunity)
     {
-        $opportunity = $this->findModelById(Opportunity::class, $opportunity->id);
-        $leads = Lead::select('id', 'title')->orderByDesc('created_at')->limit(100)->get();
-        $owners = User::select('id', 'name')->orderBy('name')->get();
-        $stageOptions = Opportunity::STAGES;
-        $currencyOptions = config('app.supported_currencies', ['USD', 'EUR', 'GBP']);
-        return Inertia::render('opportunities/edit', [
-            'opportunity' => $opportunity,
-            'leads' => $leads,
-            'owners' => $owners,
-            'stageOptions' => $stageOptions,
-            'currencyOptions' => $currencyOptions,
-        ]);
+        return Inertia::render('opportunities/edit', array_merge(
+            ['opportunity' => $opportunity->load('lead:id,title', 'owner:id,name')],
+            $this->formOptions()
+        ));
     }
 
     public function store(Request $request)
     {
-        $data = $this->validateRequest($request, $this->rules());
-
-        $opportunity = $this->createOpportunity($data);
-
-        $this->flashSession('success', 'Opportunity created successfully.');
-
-        return $this->redirectToRoute('opportunities.show', ['opportunity' => $opportunity->id]);
+        $data = $request->validate($this->rules());
+        $data['owner_id'] ??= auth()->id();
+        $opportunity = Opportunity::create($data);
+        session()->flash('success', 'Opportunity created successfully.');
+        return redirect()->route('web.opportunities.show', $opportunity);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, Opportunity $opportunity)
     {
-        $opportunity = $this->findModelById(Opportunity::class, $id);
-
-        $data = $this->validateRequest($request, $this->rules());
-
-        $this->updateOpportunity($opportunity, $data);
-
-        $this->flashSession('success', 'Opportunity updated successfully.');
-
-        return $this->redirectToRoute('opportunities.show', ['opportunity' => $opportunity->id]);
+        $opportunity->update($request->validate($this->rules($opportunity->id)));
+        session()->flash('success', 'Opportunity updated successfully.');
+        return redirect()->route('web.opportunities.show', $opportunity);
     }
 
-    public function destroy(Request $request, $id)
+    public function destroy(Opportunity $opportunity)
     {
-        $opportunity = $this->findModelById(Opportunity::class, $id);
-
-        $this->deleteOpportunity($opportunity);
-
-        $this->flashSession('success', 'Opportunity deleted successfully.');
-
-        return $this->redirectToRoute('opportunities.index');
+        $opportunity->delete();
+        session()->flash('success', 'Opportunity deleted.');
+        return redirect()->route('web.opportunities.index');
     }
 
-    protected function formOptions(): array
+    private function formOptions(): array
     {
         return [
-            'leads' => Lead::select('id', 'title')->orderByDesc('created_at')->limit(100)->get(),
-            'owners' => User::select('id', 'name')->orderBy('name')->get(),
-            'stageOptions' => Opportunity::STAGES,
-            'currencyOptions' => config('app.supported_currencies', ['USD', 'EUR', 'GBP']),
+            'leads'           => Lead::select('id', 'title')->orderByDesc('created_at')->limit(100)->get(),
+            'owners'          => User::select('id', 'name')->orderBy('name')->get(),
+            'stageOptions'    => Opportunity::STAGES,
+            'currencyOptions' => ['USD', 'EUR', 'GBP', 'KES'],
         ];
     }
 
-    protected function rules(): array
+    private function rules(?int $ignoreId = null): array
     {
         return [
-            'title' => ['required', 'string', 'max:255'],
-            'summary' => ['nullable', 'string'],
-            'lead_id' => ['nullable', Rule::exists('leads', 'id')],
-            'estimated_value' => ['nullable', 'numeric', 'min:0'],
-            'currency' => ['required', 'string', 'max:10'],
-            'stage' => ['required', Rule::in(Opportunity::STAGES)],
-            'owner_id' => ['nullable', Rule::exists('users', 'id')],
+            'lead_id'             => ['nullable', 'exists:leads,id'],
+            'title'               => ['required', 'string', 'max:255'],
+            'description'         => ['nullable', 'string'],
+            'estimated_value'     => ['nullable', 'numeric', 'min:0'],
+            'probability'         => ['nullable', 'integer', 'min:0', 'max:100'],
+            'stage'               => ['nullable', Rule::in(Opportunity::STAGES)],
             'expected_close_date' => ['nullable', 'date'],
-            'ai_suggestions' => ['nullable', 'array'],
+            'contact_name'        => ['nullable', 'string', 'max:255'],
+            'contact_email'       => ['nullable', 'email'],
+            'contact_phone'       => ['nullable', 'string', 'max:30'],
+            'owner_id'            => ['nullable', 'exists:users,id'],
+            'currency'            => ['nullable', 'string', 'max:10'],
         ];
-    }
-
-    private function createOpportunity(array $data)
-    {
-        return Opportunity::create($data);
-    }
-
-    private function updateOpportunity(Opportunity $opportunity, array $data)
-    {
-        return $opportunity->update($data);
-    }
-
-    private function deleteOpportunity(Opportunity $opportunity)
-    {
-        return $opportunity->delete();
-    }
-
-    private function paginateOpportunities($query, $perPage = 15)
-    {
-        return $query->paginate($perPage)->withQueryString();
-    }
-
-    private function orderByDesc($query, $column)
-    {
-        return $query->orderByDesc($column);
-    }
-
-    private function wantsJson(Request $request)
-    {
-        return $request->wantsJson();
-    }
-
-    private function jsonResponse($data)
-    {
-        return response()->json($data);
-    }
-
-    private function renderInertia(string $component, array $props = [])
-    {
-        return Inertia::render($component, $props);
-    }
-
-    private function getModelWith($model, array $relations)
-    {
-        return $model::with($relations);
-    }
-
-    private function findModelById($model, $id)
-    {
-        return $model::findOrFail($id);
-    }
-
-    private function arrayMerge(array $array1, array $array2)
-    {
-        return array_merge($array1, $array2);
-    }
-
-    private function compact(array $variables)
-    {
-        return compact($variables);
-    }
-
-    private function validateRequest(Request $request, array $rules): array
-    {
-        return $request->validate($rules);
-    }
-
-    private function flashSession(string $key, $value)
-    {
-        session()->flash($key, $value);
-    }
-
-    private function redirectToRoute(string $name, $parameters = [])
-    {
-        return redirect()->route($name, $parameters);
-    }
-
-    private function getModelQuery($model)
-    {
-        return $model::query();
     }
 }

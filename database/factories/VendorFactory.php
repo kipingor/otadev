@@ -18,11 +18,11 @@ class VendorFactory extends Factory
             'name' => fake()->company(),
             'category' => fake()->randomElement([
                 // Schema typo fix: original migration category spelling
-                'Contruction',
+                'Construction',
                 'IT Services',
                 'Facility Management',
                 'Security',
-                'Transpotation',
+                'Transportation',
                 'Consulting',
                 'Equipment Supply',
                 'Electrical',

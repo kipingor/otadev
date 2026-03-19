@@ -1,10 +1,22 @@
+/**
+ * OpportunityCard — merged from opportunity-card.tsx + opportunity-card-enhanced.tsx
+ *
+ * Changes:
+ * - Single export: OpportunityCard (OpportunityCardEnhanced deleted)
+ * - Inline editing via InlineEditableField (from enhanced version)
+ * - All mutations use axios (not Inertia router.post/delete — fixes FIX 5 & 9)
+ * - Uses closed_at for overdue check (not just !config.isClosed — more accurate)
+ * - opportunity-kanban.tsx and opportunity-kanban-column.tsx both import from here
+ */
+
 import React, { useState } from 'react';
-import { Opportunity, OPPORTUNITY_STAGE_CONFIGS } from '@/types/opportunity.types';
+import { Opportunity, OPPORTUNITY_STAGE_CONFIGS, OpportunityStage } from '@/types/opportunity.types';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
+import { InlineEditableField } from '@/components/ui/inline-editable-field';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -13,96 +25,89 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-    MoreVertical,
-    Edit,
-    Trash2,
-    DollarSign,
-    Calendar,
-    User,
-    TrendingUp,
-    Award,
-    XCircle,
+    MoreVertical, Edit, Trash2, DollarSign, Calendar,
+    User, TrendingUp, Award, XCircle,
 } from 'lucide-react';
 import { format, isPast, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { router } from '@inertiajs/react';
 import { toast } from 'sonner';
 import { useDeleteConfirmation } from '@/components/ui/confirm-dialog';
+import api from '@/lib/axios';
 
 interface OpportunityCardProps {
     opportunity: Opportunity;
     onEdit?: (opportunity: Opportunity) => void;
     onUpdate?: () => void;
     isDragging?: boolean;
+    /** Whether to show inline-editable fields. Default: true */
+    inlineEdit?: boolean;
 }
 
-export function OpportunityCard({ opportunity, onEdit, onUpdate, isDragging }: OpportunityCardProps) {
+const stageOptions = Object.keys(OPPORTUNITY_STAGE_CONFIGS).map((key) => ({
+    label: OPPORTUNITY_STAGE_CONFIGS[key as OpportunityStage].label,
+    value: key,
+}));
+
+export function OpportunityCard({
+    opportunity,
+    onEdit,
+    onUpdate,
+    isDragging,
+    inlineEdit = true,
+}: OpportunityCardProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const { confirmDelete, ConfirmDialog } = useDeleteConfirmation();
-    
-    const config = OPPORTUNITY_STAGE_CONFIGS[opportunity.stage];
-    const isOverdue = opportunity.expected_close_date && 
-                      !config.isClosed && 
-                      isPast(parseISO(opportunity.expected_close_date));
+
+    const config    = OPPORTUNITY_STAGE_CONFIGS[opportunity.stage];
+    const isOverdue = opportunity.expected_close_date
+        && !opportunity.closed_at
+        && isPast(parseISO(opportunity.expected_close_date));
+
+    // All mutations go through axios so React Query / optimistic state works correctly
+    const handleFieldUpdate = async (field: string, value: string | number): Promise<void> => {
+        try {
+            await api.put(`/opportunities/${opportunity.id}`, { [field]: value });
+            toast.success('Updated');
+            onUpdate?.();
+        } catch {
+            toast.error('Update failed');
+        }
+    };
 
     const handleDelete = async () => {
         await confirmDelete({
             itemName: opportunity.title,
             onConfirm: async () => {
-                return new Promise<void>((resolve, reject) => {
-                    setIsDeleting(true);
-                    router.delete(`/api/v1/opportunities/${opportunity.id}`, {
-                        preserveScroll: true,
-                        onSuccess: () => {
-                            toast.success('Opportunity deleted');
-                            onUpdate?.();
-                            resolve();
-                        },
-                        onError: (errors) => {
-                            toast.error(errors.message || 'Failed to delete opportunity');
-                            reject(new Error('Delete failed'));
-                        },
-                        onFinish: () => {
-                            setIsDeleting(false);
-                        },
-                    });
-                });
+                setIsDeleting(true);
+                try {
+                    await api.delete(`/opportunities/${opportunity.id}`);
+                    toast.success('Opportunity deleted');
+                    onUpdate?.();
+                } finally {
+                    setIsDeleting(false);
+                }
             },
         });
     };
 
-    const handleMarkAsWon = () => {
-        router.post(
-            `/api/v1/opportunities/${opportunity.id}/mark-won`,
-            {},
-            {
-                preserveScroll: true,
-                onSuccess: () => {
-                    toast.success('Opportunity marked as won! 🎉');
-                    onUpdate?.();
-                },
-                onError: (errors) => {
-                    toast.error(errors.message || 'Failed to mark as won');
-                },
-            }
-        );
+    const handleMarkAsWon = async () => {
+        try {
+            await api.post(`/opportunities/${opportunity.id}/mark-won`);
+            toast.success('Marked as won 🎉');
+            onUpdate?.();
+        } catch {
+            toast.error('Failed to mark as won');
+        }
     };
 
-    const handleMarkAsLost = () => {
-        router.post(
-            `/api/v1/opportunities/${opportunity.id}/mark-lost`,
-            {},
-            {
-                preserveScroll: true,
-                onSuccess: () => {
-                    toast.info('Opportunity marked as lost');
-                    onUpdate?.();
-                },
-                onError: (errors) => {
-                    toast.error(errors.message || 'Failed to mark as lost');
-                },
-            }
-        );
+    const handleMarkAsLost = async () => {
+        try {
+            await api.post(`/opportunities/${opportunity.id}/mark-lost`);
+            toast.info('Marked as lost');
+            onUpdate?.();
+        } catch {
+            toast.error('Failed to mark as lost');
+        }
     };
 
     return (
@@ -110,9 +115,9 @@ export function OpportunityCard({ opportunity, onEdit, onUpdate, isDragging }: O
             <Card
                 className={cn(
                     'p-4 cursor-move hover:shadow-lg transition-all',
-                    isDragging && 'opacity-50',
-                    isOverdue && 'border-red-300 bg-red-50',
-                    config.isClosed && 'opacity-75'
+                    isDragging && 'opacity-50 rotate-1 scale-105',
+                    isOverdue && 'border-red-300 bg-red-50 dark:bg-red-950/20',
+                    config.isClosed && 'opacity-75',
                 )}
             >
                 {/* Header */}
@@ -122,19 +127,26 @@ export function OpportunityCard({ opportunity, onEdit, onUpdate, isDragging }: O
                             <div
                                 className={cn(
                                     'w-2 h-2 rounded-full flex-shrink-0',
-                                    config.color === 'gray' && 'bg-gray-400',
-                                    config.color === 'blue' && 'bg-blue-500',
+                                    config.color === 'gray'   && 'bg-gray-400',
+                                    config.color === 'blue'   && 'bg-blue-500',
                                     config.color === 'orange' && 'bg-orange-500',
-                                    config.color === 'green' && 'bg-green-500',
-                                    config.color === 'red' && 'bg-red-500'
+                                    config.color === 'green'  && 'bg-green-500',
+                                    config.color === 'red'    && 'bg-red-500',
                                 )}
                             />
-                            <h4 className="font-semibold text-gray-900 truncate">
-                                {opportunity.title}
-                            </h4>
+                            {inlineEdit ? (
+                                <InlineEditableField
+                                    value={opportunity.title}
+                                    onSave={(v) => handleFieldUpdate('title', v)}
+                                    placeholder="Opportunity title"
+                                    displayClassName="font-semibold text-sm truncate"
+                                />
+                            ) : (
+                                <h4 className="font-semibold text-sm truncate">{opportunity.title}</h4>
+                            )}
                         </div>
                         {opportunity.lead && (
-                            <p className="text-xs text-gray-600 truncate">
+                            <p className="text-xs text-muted-foreground truncate">
                                 {opportunity.lead.title}
                             </p>
                         )}
@@ -142,7 +154,7 @@ export function OpportunityCard({ opportunity, onEdit, onUpdate, isDragging }: O
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
                                 <MoreVertical className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
@@ -177,53 +189,93 @@ export function OpportunityCard({ opportunity, onEdit, onUpdate, isDragging }: O
                     </DropdownMenu>
                 </div>
 
+                {/* Stage (inline editable) */}
+                <div className="mb-3">
+                    {inlineEdit ? (
+                        <InlineEditableField
+                            value={opportunity.stage}
+                            onSave={(v) => handleFieldUpdate('stage', v)}
+                            type="select"
+                            options={stageOptions}
+                        />
+                    ) : (
+                        <Badge variant="outline">{config.label}</Badge>
+                    )}
+                </div>
+
                 {/* Amount & Probability */}
                 <div className="space-y-2 mb-3">
                     <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-1 text-gray-700">
+                        <div className="flex items-center gap-1 text-foreground">
                             <DollarSign className="h-4 w-4" />
-                            <span className="font-semibold">
-                                ${opportunity.amount?.toLocaleString() || 0}
-                            </span>
+                            {inlineEdit ? (
+                                <InlineEditableField
+                                    value={opportunity.estimated_value ?? opportunity.amount ?? 0}
+                                    onSave={(v) => handleFieldUpdate('estimated_value', v)}
+                                    type="number"
+                                    formatDisplay={(val) => `$${Number(val).toLocaleString()}`}
+                                    displayClassName="font-semibold"
+                                />
+                            ) : (
+                                <span className="font-semibold">
+                                    ${(opportunity.estimated_value ?? opportunity.amount ?? 0).toLocaleString()}
+                                </span>
+                            )}
                         </div>
                         <Badge variant="outline" className="font-mono">
                             {opportunity.probability}%
                         </Badge>
                     </div>
-
-                    {/* Probability Progress Bar */}
                     <Progress value={opportunity.probability} className="h-2" />
-
-                    {/* Weighted Value */}
-                    <div className="flex items-center gap-1 text-xs text-gray-600">
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <TrendingUp className="h-3 w-3" />
                         <span>
-                            Weighted: ${opportunity.weighted_value?.toLocaleString() || 0}
+                            Weighted: ${(opportunity.weighted_value ?? 0).toLocaleString()}
                         </span>
                     </div>
                 </div>
 
                 {/* Expected Close Date */}
-                {opportunity.expected_close_date && (
-                    <div className={cn(
-                        'flex items-center gap-1 text-xs mb-2',
-                        isOverdue ? 'text-red-600 font-medium' : 'text-gray-600'
-                    )}>
-                        <Calendar className="h-3 w-3" />
-                        <span>
+                <div className="mb-2">
+                    {inlineEdit ? (
+                        <InlineEditableField
+                            value={opportunity.expected_close_date ?? ''}
+                            onSave={(v) => handleFieldUpdate('expected_close_date', v)}
+                            type="date"
+                            formatDisplay={(val) => val ? `${format(parseISO(String(val)), 'MMM d, yyyy')}${isOverdue ? ' (Overdue)' : ''}` : ''}
+                            displayClassName={cn(
+                                'flex items-center gap-1 text-xs',
+                                isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'
+                            )}
+                        />
+                    ) : opportunity.expected_close_date ? (
+                        <div className={cn(
+                            'flex items-center gap-1 text-xs',
+                            isOverdue ? 'text-red-600 font-medium' : 'text-muted-foreground'
+                        )}>
+                            <Calendar className="h-3 w-3" />
                             {format(parseISO(opportunity.expected_close_date), 'MMM d, yyyy')}
                             {isOverdue && ' (Overdue)'}
-                        </span>
-                    </div>
-                )}
+                        </div>
+                    ) : null}
+                </div>
 
                 {/* Contact */}
-                {opportunity.contact_name && (
-                    <div className="flex items-center gap-1 text-xs text-gray-600 mb-3">
-                        <User className="h-3 w-3" />
-                        <span className="truncate">{opportunity.contact_name}</span>
-                    </div>
-                )}
+                <div className="mb-3">
+                    {inlineEdit ? (
+                        <InlineEditableField
+                            value={opportunity.contact_name ?? ''}
+                            onSave={(v) => handleFieldUpdate('contact_name', v)}
+                            placeholder="Add contact"
+                            displayClassName="flex items-center gap-1 text-xs text-muted-foreground"
+                        />
+                    ) : opportunity.contact_name ? (
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <User className="h-3 w-3" />
+                            {opportunity.contact_name}
+                        </div>
+                    ) : null}
+                </div>
 
                 {/* Owner */}
                 {opportunity.owner && (
@@ -234,7 +286,7 @@ export function OpportunityCard({ opportunity, onEdit, onUpdate, isDragging }: O
                                 {opportunity.owner.name.charAt(0)}
                             </AvatarFallback>
                         </Avatar>
-                        <span className="text-xs text-gray-600 truncate">
+                        <span className="text-xs text-muted-foreground truncate">
                             {opportunity.owner.name}
                         </span>
                     </div>
@@ -244,3 +296,7 @@ export function OpportunityCard({ opportunity, onEdit, onUpdate, isDragging }: O
         </>
     );
 }
+
+// Keep named export alias so existing imports of OpportunityCardEnhanced don't break
+// while the codebase is updated. Remove after updating opportunity-kanban-column.tsx.
+export { OpportunityCard as OpportunityCardEnhanced };

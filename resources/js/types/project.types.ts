@@ -23,7 +23,7 @@ export interface Project {
   owner?: User;
   tasks?: Task[];
   milestones?: Milestone[];
-  teamMembers?: ProjectTeamMember[];
+  team_members?: ProjectTeamMember[];
 }
 
 export type ProjectStatus = 
@@ -246,13 +246,23 @@ export interface ProjectsIndexProps {
   statistics: ProjectStatistics;
 }
 
+export interface ActivityLogEntry {
+  id: number;
+  event: string;
+  description: string;
+  user: { id: number; name: string; avatar?: string } | null;
+  created_at: string;
+  new_values?: Record<string, unknown>;
+}
+
 export interface ProjectShowProps {
   project: ProjectWithProgress;
   progress: ProjectProgress;
   timeline: ProjectTimeline;
   isAtRisk: boolean;
   budget: BudgetUtilization;
-  teamMembers: User[];
+  recentActivity: ActivityLogEntry[];
+  availableUsers: User[];
   canManage: boolean;
 }
 

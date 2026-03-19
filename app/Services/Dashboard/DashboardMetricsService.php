@@ -4,585 +4,409 @@ namespace App\Services\Dashboard;
 
 use App\Models\Lead;
 use App\Models\User;
-use App\Models\LeadDocument;
 use App\Models\Opportunity;
 use App\Models\Project;
 use App\Models\Task;
-use App\Models\Proposal;
 use App\Models\Activity;
+use App\Models\PipelineStage;
+use App\Models\Invoice;
+use App\Enums\LeadStatus;
 use App\Services\Lead\LeadService;
 use App\Services\Pipeline\PipelineService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Carbon\Carbon;
 
+/**
+ * Consolidated Dashboard Service
+ *
+ * This service combines the previous DashboardMetricsService and DashboardAnalyticsService into a single class
+ * that provides all the necessary data for both the dashboard overview and the analytics endpoints.
+ */
 class DashboardMetricsService
 {
     public function __construct(
         protected LeadService $leadService,
         protected PipelineService $pipelineService,
-    ) {
+    ) {}
+
+    // ── Cache ─────────────────────────────────────────────────────────────────
+
+    public function clearCache(?int $userId = null): void
+    {
+        $keys = [
+            'dashboard.overview.' . ($userId ?? 'all'),
+            'dashboard.activity.week',
+            'dashboard.activity.month',
+            'dashboard.pipeline',
+        ];
+        foreach ($keys as $key) {
+            Cache::forget($key);
+        }
     }
 
+    // ── Overview Metrics (Web controller) ─────────────────────────────────────
+
     /**
-     * Get comprehensive dashboard overview
-     *
-     * @param int|null $userId Filter by specific user (null = all users)
-     * @param bool $useCache Whether to use cached results
-     * @return array
+     * Full overview for the dashboard page.
      */
     public function getOverview(?int $userId = null, bool $useCache = true): array
     {
-        $cacheKey = "dashboard.overview." . ($userId ?? 'all');
-        
+        $cacheKey = 'dashboard.overview.' . ($userId ?? 'all');
+
         if ($useCache) {
-            return Cache::remember($cacheKey, now()->addMinutes(5), function () use ($userId) {
-                return $this->calculateOverview($userId);
-            });
+            return Cache::remember($cacheKey, now()->addMinutes(5), fn () =>
+                $this->calculateOverview($userId)
+            );
         }
 
         return $this->calculateOverview($userId);
     }
 
-    /**
-     * Calculate dashboard overview metrics
-     *
-     * @param int|null $userId
-     * @return array
-     */
-    protected function calculateOverview(?int $userId = null): array
+    protected function calculateOverview(?int $userId): array
     {
-        $leadStats = $this->leadService->getStatistics();
-        $pipelineStats = $this->pipelineService->getAnalytics();
+        $leadQuery = Lead::query()->when($userId, fn ($q) => $q->where('owner_id', $userId));
+        $oppQuery  = Opportunity::query()->when($userId, fn ($q) => $q->where('owner_id', $userId));
 
         return [
-            'overview' => [
-                'total_leads' => $leadStats['total'] ?? 0,
-                'active_leads' => $leadStats['active_count'] ?? 0,
-                'conversion_rate' => $leadStats['conversion_rate'] ?? 0,
-                'total_opportunities' => $this->getOpportunitiesCount(),
-            ],
-            'leads_over_time' => $this->getLeadsOverTime(30),
-            'opportunity_pipeline' => $pipelineStats['stages'] ?? [],
-            'revenue_over_time' => $this->getRevenueOverTime(30),
+            'leads'               => (clone $leadQuery)->count(),
+            'active_leads'        => (clone $leadQuery)->whereIn('status', LeadStatus::active())->count(),
+            'opportunities'       => (clone $oppQuery)->count(),
+            // FIX: Opportunity stage values are 'closed_won'/'closed_lost', not 'won'/'lost'
+            'open_pipeline'       => (clone $oppQuery)->whereNotIn('stage', ['closed_won', 'closed_lost'])->count(),
+            'projects'            => Project::when($userId, fn ($q) => $q->where('owner_id', $userId))->count(),
+            'active_projects'     => Project::where('status', 'active')
+                ->when($userId, fn ($q) => $q->where('owner_id', $userId))->count(),
+            'overdue_invoices'    => Invoice::where('status', 'overdue')->count(),
+            'conversion_rate'     => $this->leadService->getStatistics()['conversion_rate'] ?? 0,
+        ];
+    }
+
+    // ── Activity Metrics ──────────────────────────────────────────────────────
+
+    /**
+     * @param string $period 'week' | 'month' | 'quarter'
+     */
+    public function getActivityMetrics(string $period = 'month'): array
+    {
+        $cacheKey = "dashboard.activity.{$period}";
+        return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($period) {
+            $from = match ($period) {
+                'week'    => now()->subWeek(),
+                'quarter' => now()->subQuarter(),
+                default   => now()->subMonth(),
+            };
+
+            return [
+                'leads_created'       => Lead::where('created_at', '>=', $from)->count(),
+                'leads_converted'     => Lead::whereNotNull('converted_to_opportunity_at')
+                                             ->where('converted_to_opportunity_at', '>=', $from)->count(),
+                // FIX: Opportunity stage is 'closed_won', not 'won'
+                'opportunities_won'   => Opportunity::where('stage', 'closed_won')
+                                                    ->where('updated_at', '>=', $from)->count(),
+                'activities_logged'   => Activity::where('created_at', '>=', $from)->count(),
+                'projects_completed'  => Project::where('status', 'completed')
+                                                ->where('completed_at', '>=', $from)->count(),
+                'revenue'             => Invoice::where('status', 'paid')
+                                                ->where('updated_at', '>=', $from)->sum('total'),
+            ];
+        });
+    }
+
+    // ── Overview Metrics (Analytics — was DashboardAnalyticsService) ──────────
+
+    /**
+     * Filterable overview for the analytics API endpoint.
+     * Merged from DashboardAnalyticsService::getOverviewMetrics().
+     */
+    public function getOverviewMetrics(array $filters = []): array
+    {
+        $dateFrom = isset($filters['date_from']) ? Carbon::parse($filters['date_from']) : now()->subDays(30);
+        $dateTo   = isset($filters['date_to'])   ? Carbon::parse($filters['date_to'])   : now();
+
+        $query = Lead::query();
+        if (!empty($filters['owner_id'])) {
+            $query->where('owner_id', $filters['owner_id']);
+        }
+
+        return [
+            'total_leads'   => (clone $query)->count(),
+            'new_leads'     => (clone $query)->whereBetween('created_at', [$dateFrom, $dateTo])->count(),
+            'converted'     => (clone $query)->whereNotNull('converted_to_opportunity_at')->count(),
+            'conversion_rate' => $this->calcConversionRate(clone $query),
+            'total_pipeline_value' => (float) Lead::whereNotNull('pipeline_stage_id')->sum('estimated_value'),
+            'average_deal_size' => $query->count() > 0
+                                        ? round((float) $query->sum('estimated_value') / $query->count(), 2)
+                                        : 0,
+            'total_revenue' => Invoice::where('status', 'paid')
+                                      ->whereBetween('updated_at', [$dateFrom, $dateTo])
+                                      ->sum('total'),
+            'period'        => ['from' => $dateFrom->toDateString(), 'to' => $dateTo->toDateString()],
+            'won_leads' => Lead::where('status', LeadStatus::WON)->count(),
+            'qualified_leads' => Lead::where('status', LeadStatus::QUALIFIED)->count(),
         ];
     }
 
     /**
-     * Get overview metrics for dashboard cards
-     * ✅ FIXED: Simplified to return basic counts
+     * Leads grouped by status — for funnel/bar charts.
+     * Merged from DashboardAnalyticsService::getLeadsByStatus().
      */
-    public function getOverviewMetrics(): array
+    public function getLeadsByStatus(array $filters = []): array
     {
+        $rows = Lead::query()
+            ->select('status', DB::raw('count(*) as count'))
+            ->when(!empty($filters['owner_id']), fn ($q) => $q->where('owner_id', $filters['owner_id']))
+            ->groupBy('status')
+            ->get();
+
+        return $rows->map(function ($row) {
+            // FIX: Lead.status is cast to LeadStatus enum — getRawOriginal() bypasses
+            // the cast to get the raw DB string. tryFrom(enum_object) would throw TypeError.
+            $raw  = $row->getRawOriginal('status');
+            $enum = LeadStatus::tryFrom($raw);
+            return [
+                'status' => $raw,
+                'label'  => $enum?->label() ?? ucfirst(str_replace('_', ' ', $raw ?? '')),
+                'count'  => (int) $row->count,
+                'color'  => $enum?->color() ?? 'gray',
+            ];
+        })->values()->toArray();
+    }
+
+    /**
+     * Pipeline distribution by stage.
+     * Merged from DashboardAnalyticsService::getPipelineByStage().
+     */
+    public function getPipelineByStage(array $filters = []): array
+    {
+        $cacheKey = 'dashboard.pipeline';
+        return Cache::remember($cacheKey, now()->addMinutes(5), function () {
+            return PipelineStage::withCount('leads')->orderBy('order')->get()
+                ->map(fn ($stage) => [
+                    'stage'  => $stage->name,
+                    'key'    => $stage->key,
+                    'count'  => $stage->leads_count,
+                    'color'  => $stage->color,
+                ])
+                ->toArray();
+        });
+    }
+
+    /**
+     * Lead volume over time for trend charts.
+     * Merged from DashboardAnalyticsService::getLeadsOverTime().
+     */
+    public function getLeadsOverTime(array $filters = []): array
+    {
+        $days  = $filters['days'] ?? 30;
+        $from  = now()->subDays($days);
+
+        return Lead::query()
+            ->select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as count'))
+            ->where('created_at', '>=', $from)
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->map(fn ($row) => ['date' => $row->date, 'count' => $row->count])
+            ->toArray();
+    }
+
+    /**
+     * Conversion funnel percentages.
+     * Merged from DashboardAnalyticsService::getConversionFunnel().
+     */
+    public function getConversionFunnel(array $filters = []): array
+    {
+        $totalLeads = Lead::count() ?: 1;
+        $converted  = Lead::whereNotNull('converted_to_opportunity_at')->count();
+        // FIX: Opportunity stage is 'closed_won', not 'won'
+        $wons       = Opportunity::where('stage', 'closed_won')->count();
+        $projects   = Project::whereNotNull('opportunity_id')->count();
+
+        // FIX: key was 'pct' but TypeScript ConversionFunnelStage expects 'percentage'
         return [
-            'leads' => Lead::count(),
-            'opportunities' => $this->getOpportunitiesCount(),
-            'open_pipeline' => $this->getOpenPipelineCount(),
-            'documents' => $this->getDocumentsProcessedCount(),
-            'active_projects' => $this->getActiveProjectsCount(),
-            'completed_tasks' => $this->getCompletedTasksCount(),
+            ['stage' => 'Leads',         'count' => $totalLeads, 'percentage' => 100.0],
+            ['stage' => 'Opportunities', 'count' => $converted,  'percentage' => round($converted / $totalLeads * 100, 1)],
+            ['stage' => 'Won',           'count' => $wons,       'percentage' => round($wons / $totalLeads * 100, 1)],
+            ['stage' => 'Projects',      'count' => $projects,   'percentage' => round($projects / $totalLeads * 100, 1)],
         ];
     }
 
     /**
-     * Get activity metrics for a time period
-     *
-     * @param string $period 'week', 'month', 'quarter', 'year'
-     * @return array
+     * Team performance metrics.
+     * Merged from DashboardAnalyticsService::getTeamPerformance().
      */
-    public function getActivityMetrics(string $period = 'week'): array
+    public function getTeamPerformance(array $filters = []): array
     {
-        $dateFrom = $this->getDateFromPeriod($period);
+        return User::select('users.id', 'users.name')
+            ->withCount([
+                'leads',
+                'leads as won_leads_count' => fn ($q) => $q->where('status', LeadStatus::WON),
+            ])
+            ->orderByDesc('leads_count')
+            ->limit(10)
+            ->get()
+            ->map(fn ($user) => [
+                'name'             => $user->name,
+                'total_leads'      => $user->leads_count,
+                'won_leads'        => $user->won_leads_count,
+                'conversion_rate'  => $user->leads_count > 0
+                    ? round($user->won_leads_count / $user->leads_count * 100, 1)
+                    : 0,
+            ])
+            ->toArray();
+    }
 
-        return Cache::remember(
-            "dashboard.activity.{$period}",
-            now()->addMinutes(10),
-            fn () => [
-                'leads_created' => Lead::where('created_at', '>=', $dateFrom)->count(),
-                'leads_updated' => Lead::where('updated_at', '>=', $dateFrom)
-                    ->where('updated_at', '!=', DB::raw('created_at'))
-                    ->count(),
-                'documents_uploaded' => $this->getDocumentsUploadedSince($dateFrom),
-                'proposals_generated' => $this->getProposalsGeneratedSince($dateFrom),
-                'period' => $period,
-                'date_from' => $dateFrom->toDateString(),
-            ]
-        );
+    // ── Private Helpers ───────────────────────────────────────────────────────
+
+    private function calcConversionRate($query): float
+    {
+        $total     = (clone $query)->count();
+        $converted = (clone $query)->whereNotNull('converted_to_opportunity_at')->count();
+        return $total > 0 ? round($converted / $total * 100, 1) : 0;
+    }
+
+    // ── Methods absorbed from DashboardAnalyticsService (continued) ───────────
+
+    /**
+     * Leads grouped by source — for pie/bar charts.
+     */
+    public function getLeadsBySource(array $filters = []): array
+    {
+        $query = Lead::query()
+            ->when(!empty($filters['owner_id']), fn ($q) => $q->where('owner_id', $filters['owner_id']))
+            ->when(!empty($filters['date_from']), fn ($q) => $q->where('created_at', '>=', $filters['date_from']));
+
+        return $query
+            ->select(DB::raw("JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.source')) as source"), DB::raw('count(*) as count'))
+            ->whereNotNull('metadata')
+            ->groupBy('source')
+            ->orderByDesc('count')
+            ->limit(10)
+            ->get()
+            ->map(fn ($item) => ['source' => $item->source ?? 'Unknown', 'count' => $item->count])
+            ->toArray();
     }
 
     /**
-     * Get performance metrics
-     *
-     * @return array
+     * CRM activity statistics (calls, emails, meetings logged in activities table).
      */
-    public function getPerformanceMetrics(): array
+    public function getActivityStats(array $filters = []): array
     {
-        return Cache::remember(
-            'dashboard.performance',
-            now()->addMinutes(15),
-            fn () => [
-                'average_response_time' => $this->leadService->getAverageResponseTime(),
-                'conversion_rate' => $this->leadService->getStatistics()['conversion_rate'] ?? 0,
-                'win_rate' => $this->calculateWinRate(),
-                'pipeline_velocity' => $this->pipelineService->getVelocity(),
-            ]
-        );
-    }
+        $from = isset($filters['date_from']) ? Carbon::parse($filters['date_from']) : now()->subDays(30);
+        $to   = isset($filters['date_to'])   ? Carbon::parse($filters['date_to'])   : now();
 
-    /**
-     * Calculate average response time in hours
-     *
-     * @return float Average response time in hours
-     */
-    public function calculateAverageResponseTime(): float
-    {
-        $stats = Lead::where('contacted_at', '!=', null)
-            ->selectRaw('AVG(EXTRACT(HOUR FROM (contacted_at - created_at))) as avg_hours')
-            ->first();
+        $query = \App\Models\Activity::whereBetween('created_at', [$from, $to])
+            ->when(!empty($filters['owner_id']), fn ($q) => $q->where('user_id', $filters['owner_id']));
 
-        return floatval($stats->avg_hours ?? 0);
-    }
-
-    /**
-     * Calculate win rate (won / (won + lost))
-     *
-     * @return float Percentage
-     */
-    public function calculateWinRate(): float
-    {
-        $stats = DB::table('leads')
-            ->selectRaw("
-                SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) as won,
-                SUM(CASE WHEN status = 'lost' THEN 1 ELSE 0 END) as lost
-            ")
-            ->first();
-
-        $won = $stats->won ?? 0;
-        $lost = $stats->lost ?? 0;
-        $total = $won + $lost;
-
-        return $total > 0 ? round(($won / $total) * 100, 2) : 0;
-    }
-
-    /**
-     * Get leads created over time
-     *
-     * @param int $days Number of days to look back
-     * @param string|null $groupBy 'day', 'week', 'month'
-     * @return array
-     */
-    public function getLeadsOverTime(int $days = 30, ?string $groupBy = 'day'): array
-    {
-        $startDate = now()->subDays($days);
-        
-        $dateFormat = match($groupBy) {
-            'week' => '%Y-%U',
-            'month' => '%Y-%m',
-            default => '%Y-%m-%d',
-        };
-
-        return Cache::remember(
-            "dashboard.leads_over_time.{$days}.{$groupBy}",
-            now()->addMinutes(10),
-            function () use ($startDate, $dateFormat) {
-                return Lead::selectRaw("DATE_FORMAT(created_at, '{$dateFormat}') as date, COUNT(*) as count")
-                    ->where('created_at', '>=', $startDate)
-                    ->groupBy('date')
-                    ->orderBy('date')
-                    ->get()
-                    ->map(fn ($item) => [
-                        'date' => $item->date,
-                        'count' => $item->count,
-                    ])
-                    ->toArray();
-            }
-        );
-    }
-
-    /**
-     * Get opportunity pipeline
-     * ✅ FIXED: Handles missing Opportunity model gracefully
-     */
-    public function getOpportunityPipeline(): array
-    {
-        if (!class_exists(\App\Models\Opportunity::class)) {
-            return [];
-        }
-
-        try {
-            $pipeline = Opportunity::select('stage', DB::raw('COUNT(*) as count'))
-                ->whereNotIn('stage', ['won', 'lost'])
-                ->groupBy('stage')
-                ->get();
-
-            return $pipeline->map(function ($item) {
-                return [
-                    'stage' => $item->stage,
-                    'count' => $item->count,
-                    'value' => Opportunity::where('stage', $item->stage)
-                        ->whereNotIn('stage', ['won', 'lost'])
-                        ->sum('estimated_value') ?? 0
-                ];
-            })->toArray();
-        } catch (\Exception $e) {
-            return [];
-        }
-    }
-
-    /**
-     * Get revenue over time from won opportunities
-     *
-     * @param int $days Number of days to look back
-     * @param string|null $groupBy 'day', 'week', 'month'
-     * @return array
-     */
-    public function getRevenueOverTime(int $days = 30, ?string $groupBy = 'day'): array
-    {
-        if (!class_exists(\App\Models\Opportunity::class)) {
-            return [];
-        }
-
-        $startDate = now()->subDays($days);
-        
-        $dateFormat = match($groupBy) {
-            'week' => '%Y-%U',
-            'month' => '%Y-%m',
-            default => '%Y-%m-%d',
-        };
-
-        return Cache::remember(
-            "dashboard.revenue_over_time.{$days}.{$groupBy}",
-            now()->addMinutes(10),
-            function () use ($startDate, $dateFormat) {
-                try {
-                    return Opportunity::selectRaw("DATE_FORMAT(created_at, '{$dateFormat}') as date, SUM(estimated_value) as revenue")
-                        ->where('stage', 'won')
-                        ->where('created_at', '>=', $startDate)
-                        ->groupBy('date')
-                        ->orderBy('date')
-                        ->get()
-                        ->map(fn ($item) => [
-                            'date' => $item->date,
-                            'revenue' => (float) $item->revenue,
-                        ])
-                        ->toArray();
-                } catch (\Exception $e) {
-                    return [];
-                }
-            }
-        );
-    }
-
-    /**
-     * Get conversion funnel data
-     *
-     * @return array
-     */
-    public function getConversionFunnel(): array
-    {
-        return Cache::remember(
-            'dashboard.conversion_funnel',
-            now()->addMinutes(15),
-            function () {
-                $stats = DB::table('leads')
-                    ->selectRaw("
-                        COUNT(*) as total,
-                        SUM(CASE WHEN status IN ('new', 'contacted', 'qualified') THEN 1 ELSE 0 END) as in_progress,
-                        SUM(CASE WHEN status = 'proposal_sent' THEN 1 ELSE 0 END) as proposal,
-                        SUM(CASE WHEN status = 'negotiation' THEN 1 ELSE 0 END) as negotiation,
-                        SUM(CASE WHEN status = 'won' THEN 1 ELSE 0 END) as won,
-                        SUM(CASE WHEN status = 'lost' THEN 1 ELSE 0 END) as lost
-                    ")
-                    ->first();
-
-                return [
-                    'total' => $stats->total ?? 0,
-                    'in_progress' => $stats->in_progress ?? 0,
-                    'proposal' => $stats->proposal ?? 0,
-                    'negotiation' => $stats->negotiation ?? 0,
-                    'won' => $stats->won ?? 0,
-                    'lost' => $stats->lost ?? 0,
-                ];
-            }
-        );
-    }
-
-    /**
-     * Get top performing users for a period
-     *
-     * @param int $limit
-     * @param string $period
-     * @return \Illuminate\Support\Collection
-     */
-    public function getTopPerformers(int $limit = 10, string $period = 'month')
-    {
-        $dateFrom = $this->getDateFromPeriod($period);
-
-        return Cache::remember(
-            "dashboard.top_performers.{$period}.{$limit}",
-            now()->addMinutes(30),
-            function () use ($limit, $dateFrom) {
-                return User::withCount([
-                    'ownedLeads as won_count' => fn ($q) => $q
-                        ->where('status', 'won')
-                        ->where('won_at', '>=', $dateFrom)
-                ])
-                ->withCount([
-                    'ownedLeads as total_count' => fn ($q) => $q
-                        ->where('created_at', '>=', $dateFrom)
-                ])
-                ->having('won_count', '>', 0)
-                ->orderByDesc('won_count')
-                ->limit($limit)
+        return [
+            'total'     => (clone $query)->count(),
+            'completed' => (clone $query)->whereNotNull('completed_at')->count(),
+            'pending'   => (clone $query)->whereNull('completed_at')->count(),
+            'overdue'   => (clone $query)
+                ->whereNull('completed_at')
+                ->whereNotNull('scheduled_at')
+                ->where('scheduled_at', '<', now())
+                ->count(),
+            'by_type'   => (clone $query)
+                ->select('type', DB::raw('count(*) as count'))
+                ->groupBy('type')
                 ->get()
-                ->map(fn ($user) => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'won_count' => $user->won_count,
-                    'total_count' => $user->total_count,
-                    'win_rate' => $user->total_count > 0
-                        ? round(($user->won_count / $user->total_count) * 100, 2)
-                        : 0,
-                ]);
-            }
-        );
-    }
-
-    /**
-     * Get task completion rate
-     * ✅ FIXED: Handles missing Task model gracefully
-     */
-    public function getTaskCompletionRate(): array
-    {
-        if (!class_exists(\App\Models\Task::class)) {
-            return [
-                'total' => 0,
-                'completed' => 0,
-                'in_progress' => 0,
-                'pending' => 0,
-                'completion_rate' => 0,
-            ];
-        }
-
-        try {
-            $totalTasks = Task::count();
-            $completedTasks = Task::where('status', 'done')->count();
-            $inProgressTasks = Task::where('status', 'in_progress')->count();
-            $reviewTasks = Task::where('status', 'review')->count();
-            $pendingTasks = Task::where('status', 'todo')->count();
-
-            return [
-                'total' => $totalTasks,
-                'completed' => $completedTasks,
-                'in_progress' => $inProgressTasks + $reviewTasks,
-                'pending' => $pendingTasks,
-                'completion_rate' => $totalTasks > 0
-                    ? round(($completedTasks / $totalTasks) * 100, 1)
-                    : 0
-            ];
-        } catch (\Exception $e) {
-            return [
-                'total' => 0,
-                'completed' => 0,
-                'in_progress' => 0,
-                'pending' => 0,
-                'completion_rate' => 0,
-            ];
-        }
-    }
-
-    /**
-     * Get recent activities with relationships
-     *
-     * @param int $limit
-     * @return \Illuminate\Database\Eloquent\Collection
-     */
-    public function getRecentActivities(int $limit = 20)
-    {
-        if (!class_exists(\App\Models\Activity::class)) {
-            return collect();
-        }
-
-        try {
-            return Activity::with(['lead', 'user'])
-                ->latest()
-                ->limit($limit)
-                ->get();
-        } catch (\Exception $e) {
-            return collect();
-        }
-    }
-
-    public function getLeadsChartData(int $days = 30): array
-    {
-        $startDate = now()->subDays($days);
-
-        return Cache::remember(
-            "dashboard.leads_chart_data.{$days}",
-            now()->addMinutes(10),
-            function () use ($startDate) {
-                return Lead::selectRaw("DATE(created_at) as date, COUNT(*) as count")
-                    ->where('created_at', '>=', $startDate)
-                    ->groupBy('date')
-                    ->orderBy('date')
-                    ->get()
-                    ->map(fn ($item) => [
-                        'date' => $item->date,
-                        'count' => $item->count,
-                    ])
-                    ->toArray();
-            }
-        );
-    }
-
-    /**
-     * Clear all dashboard caches
-     *
-     * @return void
-     */
-    public function clearCache(): void
-    {
-        $patterns = [
-            'dashboard.overview.*',
-            'dashboard.activity.*',
-            'dashboard.performance',
-            'dashboard.top_performers.*',
-            'dashboard.leads_over_time.*',
-            'dashboard.revenue_over_time.*',
-            'dashboard.conversion_funnel',
+                ->keyBy('type')
+                ->map(fn ($r) => $r->count)
+                ->toArray(),
         ];
-
-        foreach ($patterns as $pattern) {
-            Cache::forget($pattern);
-        }
     }
 
     /**
-     * Helper: Get date from period string
+     * Average days to close a won lead (velocity).
+     */
+    public function getLeadVelocity(array $filters = []): array
+    {
+        $leads = Lead::where('status', \App\Enums\LeadStatus::WON)
+            ->whereNotNull('won_at')
+            ->when(!empty($filters['owner_id']), fn ($q) => $q->where('owner_id', $filters['owner_id']))
+            ->when(!empty($filters['date_from']), fn ($q) => $q->where('created_at', '>=', $filters['date_from']))
+            ->get(['created_at', 'won_at']);
+
+        if ($leads->isEmpty()) {
+            return ['average_days' => 0, 'median_days' => 0, 'fastest_days' => 0, 'slowest_days' => 0, 'sample_size' => 0];
+        }
+
+        $days = $leads->map(fn ($l) => $l->created_at->diffInDays($l->won_at))->sort()->values();
+
+        return [
+            'average_days' => round($days->avg(), 1),
+            'median_days'  => $days->count() % 2 === 0
+                ? round(($days->get(intdiv($days->count(), 2) - 1) + $days->get(intdiv($days->count(), 2))) / 2, 1)
+                : $days->get(intdiv($days->count(), 2)),
+            'fastest_days' => $days->first(),
+            'slowest_days' => $days->last(),
+            'sample_size'  => $days->count(),
+        ];
+    }
+
+    /**
+     * Win/loss rate and value analysis.
+     */
+    /**
+     * Win/loss analysis.
      *
-     * @param string $period
-     * @return \Illuminate\Support\Carbon
+     * FIX: was returning flat keys (won_count, lost_count, win_rate, won_value, lost_value)
+     * but TypeScript WinLossAnalysis and dashboard.tsx both expect NESTED objects:
+     *   win_loss.won.count / win_loss.won.percentage / win_loss.won.value
+     *   win_loss.lost.count / win_loss.lost.percentage / win_loss.lost.value
+     *   win_loss.total.count / win_loss.total.value
      */
-    protected function getDateFromPeriod(string $period): \Illuminate\Support\Carbon
+    public function getWinLossAnalysis(array $filters = []): array
     {
-        return match($period) {
-            'week' => now()->subWeek(),
-            'month' => now()->subMonth(),
-            'quarter' => now()->subMonths(3),
-            'year' => now()->subYear(),
-            default => now()->subWeek(),
-        };
+        $query = Lead::whereIn('status', [\App\Enums\LeadStatus::WON, \App\Enums\LeadStatus::LOST])
+            ->when(!empty($filters['owner_id']), fn ($q) => $q->where('owner_id', $filters['owner_id']))
+            ->when(!empty($filters['date_from']), fn ($q) => $q->where('created_at', '>=', $filters['date_from']));
+
+        $wonCount  = (clone $query)->where('status', \App\Enums\LeadStatus::WON)->count();
+        $lostCount = (clone $query)->where('status', \App\Enums\LeadStatus::LOST)->count();
+        $total     = $wonCount + $lostCount ?: 1; // prevent division by zero
+
+        $wonValue  = (float) ((clone $query)->where('status', \App\Enums\LeadStatus::WON)->sum('estimated_value')  ?? 0);
+        $lostValue = (float) ((clone $query)->where('status', \App\Enums\LeadStatus::LOST)->sum('estimated_value') ?? 0);
+
+        return [
+            'won' => [
+                'count'      => $wonCount,
+                'percentage' => round($wonCount / $total * 100, 1),
+                'value'      => $wonValue,
+            ],
+            'lost' => [
+                'count'      => $lostCount,
+                'percentage' => round($lostCount / $total * 100, 1),
+                'value'      => $lostValue,
+            ],
+            'total' => [
+                'count' => $wonCount + $lostCount,
+                'value' => $wonValue + $lostValue,
+            ],
+        ];
     }
 
     /**
-     * Helper: Get opportunities count
+     * 
      */
-    private function getOpportunitiesCount(): int
+    public function getDashboardSnapshot(array $filters = []): array
     {
-        if (!class_exists(\App\Models\Opportunity::class)) {
-            return 0;
-        }
-
-        try {
-            return Opportunity::count();
-        } catch (\Exception $e) {
-            return 0;
-        }
+        return [
+            // Required by TypeScript DashboardData interface:
+            'overview'          => $this->getOverviewMetrics($filters),
+            'leads_by_status'   => $this->getLeadsByStatus($filters),
+            'leads_by_source'   => $this->getLeadsBySource($filters),
+            'pipeline_by_stage' => $this->getPipelineByStage($filters),
+            'conversion_funnel' => $this->getConversionFunnel($filters),
+            'lead_velocity'     => $this->getLeadVelocity($filters),
+            'win_loss'          => $this->getWinLossAnalysis($filters),
+            // Extra — not in DashboardData interface but useful for other views:
+            'leads_over_time'   => $this->getLeadsOverTime($filters),
+            'activity_stats'    => $this->getActivityStats($filters),
+            'team_performance'  => $this->getTeamPerformance($filters),
+        ];
     }
-
-    /**
-     * Helper: Get open pipeline count
-     */
-    private function getOpenPipelineCount(): int
-    {
-        if (!class_exists(\App\Models\Opportunity::class)) {
-            return 0;
-        }
-
-        try {
-            return Opportunity::whereNotIn('stage', ['won', 'lost'])->count();
-        } catch (\Exception $e) {
-            return 0;
-        }
-    }
-
-    /**
-     * Helper: Get documents processed count
-     */
-    private function getDocumentsProcessedCount(): int
-    {
-        if (!class_exists(\App\Models\LeadDocument::class)) {
-            return 0;
-        }
-
-        try {
-            return LeadDocument::whereNotNull('ai_summary')->count();
-        } catch (\Exception $e) {
-            return 0;
-        }
-    }
-
-    /**
-     * Helper: Get active projects count
-     */
-    private function getActiveProjectsCount(): int
-    {
-        if (!class_exists(\App\Models\Project::class)) {
-            return 0;
-        }
-
-        try {
-            return Project::where('status', 'active')->count();
-        } catch (\Exception $e) {
-            return 0;
-        }
-    }
-
-    /**
-     * Helper: Get completed tasks count
-     */
-    private function getCompletedTasksCount(): int
-    {
-        if (!class_exists(\App\Models\Task::class)) {
-            return 0;
-        }
-
-        try {
-            return Task::where('status', 'done')->count();
-        } catch (\Exception $e) {
-            return 0;
-        }
-    }
-
-    /**
-     * Helper: Get documents uploaded since date
-     */
-    private function getDocumentsUploadedSince($dateFrom): int
-    {
-        if (!class_exists(\App\Models\LeadDocument::class)) {
-            return 0;
-        }
-
-        try {
-            return LeadDocument::where('created_at', '>=', $dateFrom)->count();
-        } catch (\Exception $e) {
-            return 0;
-        }
-    }
-
-    /**
-     * Helper: Get proposals generated since date
-     */
-    private function getProposalsGeneratedSince($dateFrom): int
-    {
-        if (!class_exists(\App\Models\Proposal::class)) {
-            return 0;
-        }
-
-        try {
-            return Proposal::where('created_at', '>=', $dateFrom)->count();
-        } catch (\Exception $e) {
-            return 0;
-        }
-    }
-}
+}    

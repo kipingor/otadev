@@ -4,8 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
      */
@@ -13,7 +12,13 @@ return new class extends Migration
     {
         Schema::create('comments', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->morphs('commentable');          // commentable_type + commentable_id
+            $table->text('body');
+            $table->string('type', 50)->default('comment'); // comment | note | mitigation
+            $table->json('metadata')->nullable();
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

@@ -3,18 +3,30 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Tag extends Model
 {
     protected $fillable = ['name', 'color'];
 
-    public function leads()
+    // ── Relations ─────────────────────────────────────────────────────────────
+
+    /**
+     * All leads that have this tag.
+     * Uses the lead_tag direct pivot (same table the Lead model uses).
+     */
+    public function leads(): BelongsToMany
     {
-        return $this->morphedByMany(Lead::class, 'taggable');
+        return $this->belongsToMany(Lead::class, 'lead_tag');
     }
 
-    public function projects()
+    /**
+     * All projects that have this tag.
+     * Requires a project_tag pivot migration if used.
+     * Left as a stub to avoid breaking existing code references.
+     */
+    public function projects(): BelongsToMany
     {
-        return $this->morphedByMany(Project::class, 'taggable');
+        return $this->belongsToMany(Project::class, 'project_tag');
     }
 }

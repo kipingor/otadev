@@ -3,329 +3,115 @@
 namespace App\Http\Controllers\Web;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Conversation;
 use App\Models\Lead;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
-use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Facades\Response;
+use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
+use Inertia\Response;
+use Illuminate\Support\Facades\Auth;
 
+/**
+ * ConversationController
+ */
 class ConversationController extends Controller
 {
     public function index(Request $request)
     {
-        $query = $this->getConversationBaseQuery();
-
-        // Apply filters based on request parameters
-        if ($request->has('lead_id')) {
-            $query = $this->applyLeadFilter($query, $request->input('lead_id'));
-        }
-        if ($request->has('message')) {
-            $query = $this->applyMessageFilter($query, $request->input('message'));
-        }
-
-        // Paginate results
-        $conversations = $this->paginateResults($query, $request->input('per_page', 20));
-
-        // Return view or JSON response
-        if ($request->wantsJson()) {
-            return $this->jsonResponse($conversations);
-        } else {
-            return Inertia::render('conversations/index', ['conversations' => $conversations]);
-        }
-    }
-
-    public function show(Request $request, $id)
-    {
-        $conversation = $this->findConversationById($id);
+        $conversations = Conversation::with(['lead:id,title', 'sender'])
+            ->when($request->filled('lead_id'), fn ($q) => $q->where('lead_id', $request->lead_id))
+            ->when($request->filled('search'),  fn ($q) => $q->where('message', 'like', "%{$request->search}%"))
+            ->latest()
+            ->paginate((int) $request->input('per_page', 20))
+            ->withQueryString();
 
         if ($request->wantsJson()) {
-            return $this->jsonResponse($conversation);
-        } else {
-            return Inertia::render('conversations/show', ['conversation' => $conversation]);
+            return response()->json($conversations);
         }
+
+        return Inertia::render('conversations/index', [
+            'conversations' => $conversations,
+            'filters'       => $request->only(['lead_id', 'search']),
+        ]);
     }
 
-    public function create(Request $request)
+    public function show(Request $request, int $id)
     {
-        $leads = $this->getAllLeads();
-        return view('conversations.create', ['leads' => $leads]);
+        $conversation = Conversation::with(['lead:id,title,status', 'sender'])->findOrFail($id);
+
+        if ($request->wantsJson()) {
+            return response()->json($conversation);
+        }
+
+        return Inertia::render('conversations/show', compact('conversation'));
+    }
+
+    public function create(Request $request): Response
+    {
+        // FIX: was view('conversations.create') — Blade view does not exist
+        return Inertia::render('conversations/create', [
+            'leads' => Lead::select(['id', 'title'])->orderBy('title')->limit(200)->get(),
+        ]);
     }
 
     public function store(Request $request)
     {
-        $data = $request->only(['lead_id', 'message']);
-        $data['sender_id'] = $this->getAuthenticatedUserId();
-        $data['created_at'] = $this->getCurrentTimestamp();
+        $data = $request->validate([
+            'lead_id' => ['required', 'exists:leads,id'],
+            'message' => ['required', 'string', 'max:5000'],
+        ]);
 
-        $conversation = $this->createConversation($data);
+        $data['sender_type'] = get_class(Auth::user());
+        $data['sender_id']   = Auth::id();
+
+        $conversation = Conversation::create($data);
 
         if ($request->wantsJson()) {
-            return $this->jsonResponse($conversation, 201);
-        } else {
-            return Redirect::route('conversations.show', ['id' => $conversation->id])
-                ->with('success', 'Conversation created successfully.');
+            return response()->json($conversation, 201);
         }
+
+        // FIX: was route('conversations.show') — missing web. prefix
+        return redirect()->route('web.conversations.show', $conversation->id)
+            ->with('success', 'Conversation created.');
     }
 
-    public function edit(Request $request, $id)
+    public function edit(Request $request, int $id): Response
     {
-        $conversation = $this->findConversationById($id);
-        $leads = $this->getAllLeads();
+        $conversation = Conversation::with('lead:id,title')->findOrFail($id);
 
-        return view('conversations.edit', [
+        // FIX: was view('conversations.edit')
+        return Inertia::render('conversations/edit', [
             'conversation' => $conversation,
-            'leads' => $leads,
+            'leads'        => Lead::select(['id', 'title'])->orderBy('title')->limit(200)->get(),
         ]);
     }
 
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id)
     {
-        $conversation = $this->findConversationById($id);
+        $conversation = Conversation::findOrFail($id);
 
-        $data = $request->only(['lead_id', 'message']);
-        $data['updated_at'] = $this->getCurrentTimestamp();
-
-        $updatedConversation = $this->updateConversation($conversation, $data);
+        $conversation->update($request->validate([
+            'lead_id' => ['sometimes', 'exists:leads,id'],
+            'message' => ['required', 'string', 'max:5000'],
+        ]));
 
         if ($request->wantsJson()) {
-            return $this->jsonResponse($updatedConversation);
-        } else {
-            return Redirect::route('conversations.show', ['id' => $updatedConversation->id])
-                ->with('success', 'Conversation updated successfully.');
+            return response()->json($conversation->fresh());
         }
+
+        return redirect()->route('web.conversations.show', $conversation->id)
+            ->with('success', 'Conversation updated.');
     }
 
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, int $id)
     {
-        $conversation = $this->findConversationById($id);
-        $this->deleteConversation($conversation);
+        Conversation::findOrFail($id)->delete();
 
         if ($request->wantsJson()) {
-            return $this->jsonResponse(['message' => 'Conversation deleted successfully.']);
-        } else {
-            return Redirect::route('conversations.index')
-                ->with('success', 'Conversation deleted successfully.');
+            return response()->json(['message' => 'Deleted.']);
         }
-    }
 
-    public function export(Request $request, $id)
-    {
-        $conversation = $this->findConversationById($id);
-        return $this->exportConversationContent($conversation);
-    }
-
-    public function dashboard(Request $request)
-    {
-        $metrics = $this->getDashboardMetrics();
-
-        if ($request->wantsJson()) {
-            return $this->jsonResponse($metrics);
-        } else {
-            return view('conversations.dashboard', ['metrics' => $metrics]);
-        }
-    }
-
-    public function search(Request $request)
-    {
-        $queryStr = $request->input('query', '');
-        $conversations = $this->searchConversations($queryStr);
-
-        if ($request->wantsJson()) {
-            return $this->jsonResponse($conversations);
-        } else {
-            return view('conversations.search', [
-                'conversations' => $conversations,
-                'query' => $queryStr,
-            ]);
-        }
-    }
-
-    public function filterByLead(Request $request, $leadId)
-    {
-        $conversations = $this->filterConversationsByLead($leadId);
-
-        if ($request->wantsJson()) {
-            return $this->jsonResponse($conversations);
-        } else {
-            return view('conversations.by_lead', [
-                'conversations' => $conversations,
-                'leadId' => $leadId,
-            ]);
-        }
-    }
-
-    public function exportConversation(Request $request, $id)
-    {
-        $conversation = $this->findConversationById($id);
-        return $this->exportConversationContent($conversation);
-    }
-
-    public function statistics(Request $request)
-    {
-        $statistics = $this->getConversationStatistics();
-
-        if ($request->wantsJson()) {
-            return $this->jsonResponse($statistics);
-        } else {
-            return view('conversations.statistics', ['statistics' => $statistics]);
-        }
-    }
-
-    public function latest(Request $request)
-    {
-        $conversations = $this->getLatestConversations(10);
-
-        if ($request->wantsJson()) {
-            return $this->jsonResponse($conversations);
-        } else {
-            return view('conversations.latest', ['conversations' => $conversations]);
-        }
-    }
-
-    private function jsonResponse($data, $status = 200)
-    {
-        return response()->json($data, $status);
-    }
-
-    private function getConversationBaseQuery()
-    {
-        return Conversation::with('lead', 'sender');
-    }
-
-    private function applyLeadFilter($query, $leadId)
-    {
-        return $query->where('lead_id', $leadId);
-    }
-
-    private function applyMessageFilter($query, $message)
-    {
-        return $query->where('message', 'like', '%' . $message . '%');
-    }
-
-    private function paginateResults($query, $perPage = 20)
-    {
-        return $query->orderBy('created_at', 'desc')->paginate($perPage);
-    }
-
-    private function buildExportContent(Conversation $conversation)
-    {
-        $content = "Lead: " . $conversation->lead->title . "\n";
-        $content .= "Message: " . $conversation->message . "\n";
-        $content .= "Sender: " . $conversation->sender_type . " (ID: " . $conversation->sender_id . ")\n";
-        $content .= "Date: " . $conversation->created_at->toDateTimeString() . "\n";
-
-        return $content;
-    }
-
-    private function generateFilename(Conversation $conversation)
-    {
-        return 'conversation_' . $conversation->id . '.txt';
-    }
-
-    private function getDashboardMetrics()
-    {
-        $recentConversations = Conversation::with('lead', 'sender')
-            ->orderBy('created_at', 'desc')
-            ->take(5)
-            ->get();
-
-        $totalConversations = Conversation::count();
-
-        return [
-            'recent_conversations' => $recentConversations,
-            'total_conversations' => $totalConversations,
-        ];
-    }
-
-    private function createConversation(array $data)
-    {
-        return Conversation::create($data);
-    }
-
-    private function updateConversation(Conversation $conversation, array $data)
-    {
-        $conversation->update($data);
-        return $conversation;
-    }
-
-    private function deleteConversation(Conversation $conversation)
-    {
-        $conversation->delete();
-    }
-
-    private function findConversationById($id)
-    {
-        return Conversation::findOrFail($id);
-    }
-
-    private function getAllLeads()
-    {
-        return Lead::all();
-    }
-
-    private function getAuthenticatedUserId()
-    {
-        return Auth::id();
-    }
-
-    private function getCurrentTimestamp()
-    {
-        return Carbon::now();
-    }
-
-    private function getConversationStatistics()
-    {
-        $totalConversations = Conversation::count();
-        $conversationsPerLead = Conversation::select('lead_id', DB::raw('count(*) as total'))
-            ->groupBy('lead_id')
-            ->get();
-
-        return [
-            'total_conversations' => $totalConversations,
-            'conversations_per_lead' => $conversationsPerLead,
-        ];
-    }
-
-    private function getLatestConversations($limit = 10)
-    {
-        return Conversation::with('lead', 'sender')
-            ->orderBy('created_at', 'desc')
-            ->take($limit)
-            ->get();
-    }
-
-    private function searchConversations($queryStr)
-    {
-        return Conversation::where('message', 'like', '%' . $queryStr . '%')
-            ->orWhereHas('lead', function ($q) use ($queryStr) {
-                $q->where('title', 'like', '%' . $queryStr . '%');
-            })
-            ->with('lead', 'sender')
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
-    }
-
-    private function filterConversationsByLead($leadId)
-    {
-        return Conversation::where('lead_id', $leadId)
-            ->with('lead', 'sender')
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
-    }
-
-    private function exportConversationContent(Conversation $conversation)
-    {
-        $filename = $this->generateFilename($conversation);
-        $content = $this->buildExportContent($conversation);
-
-        return Response::make($content, 200, [
-            'Content-Type' => 'text/plain',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ]);
+        return redirect()->route('web.conversations.index')
+            ->with('success', 'Conversation deleted.');
     }
 }

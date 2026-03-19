@@ -41,6 +41,7 @@ return new class extends Migration
             $table->decimal('tax', 15, 2)->default(0);
             $table->decimal('total', 15, 2)->default(0);
             $table->string('currency', 10)->default('USD');
+            $table->timestamp('sent_at')->nullable();
             $table->enum('status', ['draft', 'issued', 'paid', 'overdue', 'cancelled'])->default('draft');
             $table->json('lines')->nullable(); // store line items to avoid heavy joins
             $table->text('notes')->nullable();

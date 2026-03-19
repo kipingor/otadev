@@ -29,25 +29,27 @@ class Email extends Model
     protected $fillable = [
         'lead_id',
         'opportunity_id',
+        'from',
+        'from_name',
+        'to',
         'recipient',
         'sender_id',
         'subject',
         'body',
+        'body_plain',
+        'direction',
         'status',
         'sent_at',
+        'received_at',
         'opened_at',
         'metadata',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
-        'metadata' => 'array',
-        'sent_at' => 'datetime',
-        'opened_at' => 'datetime',
+        'metadata'    => 'array',
+        'sent_at'     => 'datetime',
+        'received_at' => 'datetime',
+        'opened_at'   => 'datetime',
     ];
 
     /**

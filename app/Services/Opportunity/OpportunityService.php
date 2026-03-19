@@ -3,60 +3,63 @@
 namespace App\Services\Opportunity;
 
 use App\Models\Opportunity;
-use Illuminate\Support\Facades\DB;
+use App\Enums\OpportunityStage;
 
 class OpportunityService
 {
     /**
-     * Get paginated list of Opportunities with filters
+     * BUG FIX: was returning bool, but OpportunityController assigned the
+     * return value back to $opportunity and returned it in the JSON response.
+     * Now returns the refreshed Opportunity model.
      */
-    public function list(array $filters = [], int $perPage = 15)
+    public function markAsWon(Opportunity $opportunity): Opportunity
     {
-        $query = Opportunity::query()
-            ->with(['lead', 'owner']);
-
-        //Apply Filters
-        if (isset($filters['lead_id'])) {
-            $query->where('lead_id', $filters['lead_id']);
-        }
-
-        if (isset($filters['owner_id'])) {
-            $query->where('owner_id', $filters['owner_id']);
-        }
-
-        if (isset($filters['stage'])) {
-            $query->where('stage', $filters['stage']);
-        }
-
-        if (isset($filters['search'])) {
-            $query->where(function ($q) use ($filters) {
-                $q->where('title', 'like', "%{$filters['search']}%")
-                ->orWhere('summary', 'like', "%{$filters['search']}%");
-            });
-        }
-
-        return $query->latest()->paginate($perPage);
+        $opportunity->update(['stage' => OpportunityStage::CLOSED_WON->value]);
+        return $opportunity->fresh();
     }
 
-    public function markAsWon(Opportunity $opportunity): bool
+    /**
+     * BUG FIX: same return type issue as markAsWon.
+     */
+    public function markAsLost(Opportunity $opportunity, ?string $reason = null): Opportunity
     {
-        return $opportunity->update(['stage' => 'closed_won']);
+        $opportunity->update([
+            'stage'       => OpportunityStage::CLOSED_LOST->value,
+            'description' => $reason
+                ? trim(($opportunity->description ?? '') . "\n\nLost reason: {$reason}")
+                : $opportunity->description,
+        ]);
+        return $opportunity->fresh();
     }
 
-    public function markAsLost(Opportunity $opportunity): bool
-    {
-        return $opportunity->update(['stage' => 'closed_lost']);
-    }
-
+    /**
+     * BUG FIX: previous version returned raw Builder queries (missing ->count())
+     * for every stage except 'total'. Results were non-serialisable objects.
+     */
     public function getStatistics(): array
     {
+        $counts = Opportunity::query()
+            ->selectRaw("
+                count(*) as total,
+                sum(case when stage = 'qualification' then 1 else 0 end) as qualification,
+                sum(case when stage = 'proposal' then 1 else 0 end) as proposal,
+                sum(case when stage = 'negotiation' then 1 else 0 end) as negotiation,
+                sum(case when stage = 'closed_won' then 1 else 0 end) as closed_won,
+                sum(case when stage = 'closed_lost' then 1 else 0 end) as closed_lost,
+                sum(case when stage not in ('closed_won','closed_lost') then estimated_value else 0 end) as pipeline_value,
+                sum(case when stage = 'closed_won' then estimated_value else 0 end) as won_value
+            ")
+            ->first();
+
         return [
-            'total' => Opportunity::count(),
-            'qualification' => Opportunity::where('stage', 'qualification'),
-            'proposal' => Opportunity::where('stage', 'proposal'),
-            'negotiation' => Opportunity::where('stage', 'negotiation'),
-            'closed_won' => Opportunity::where('stage', 'closed_won'),
-            'closed_lost' => Opportunity::where('stage', 'closed_lost'),
+            'total'          => (int) $counts->total,
+            'qualification'  => (int) $counts->qualification,
+            'proposal'       => (int) $counts->proposal,
+            'negotiation'    => (int) $counts->negotiation,
+            'closed_won'     => (int) $counts->closed_won,
+            'closed_lost'    => (int) $counts->closed_lost,
+            'pipeline_value' => (float) $counts->pipeline_value,
+            'won_value'      => (float) $counts->won_value,
         ];
     }
 }

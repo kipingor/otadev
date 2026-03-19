@@ -10,13 +10,10 @@ use Exception;
 
 class LeadAnalysisService
 {
-    private OpenAIClient $client;
-    private DocumentExtractionService $extractor;
-
-    public function __construct(OpenAIClient $client, DocumentExtractionService $extractor)
-    {
-        $this->client = $client;
-        $this->extractor = $extractor;
+    public function __construct(
+        private OpenAIClientInterface $client,
+        private DocumentExtractionService $extractor
+    ) {
     }
 
     /**
@@ -38,7 +35,8 @@ class LeadAnalysisService
             if (!$doc) {
                 throw new Exception('Document not found');
             }
-            $leadText = $this->extractor->extract($doc->storage_path);
+            $extracted = $this->extractor->extract($doc);
+            $leadText = $extracted['text'] ?? '';
         }
 
         // Get lead description if lead_id provided
@@ -87,7 +85,8 @@ class LeadAnalysisService
         // For each document, ensure it has extracted_text and ai_summary
         foreach ($lead->leadDocuments as $doc) {
             if (empty($doc->extracted_text) || empty($doc->extracted_text['text'])) {
-                $text = $this->extractor->extract($doc->storage_path);
+                $extracted = $this->extractor->extract($doc);
+                $text = $extracted['text'] ?? '';
                 if (!empty($text)) {
                     $doc->extracted_text = ['text' => $text];
                     $doc->save();

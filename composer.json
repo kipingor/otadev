@@ -26,6 +26,8 @@
         "spatie/laravel-data": "^4.19",
         "spatie/laravel-permission": "^6.23",
         "spatie/pdf-to-text": "^1.55",
+        "symfony/http-client": "^8.0",
+        "symfony/mailgun-mailer": "^8.0",
         "tightenco/ziggy": "^2.6"
     },
     "require-dev": {

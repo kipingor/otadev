@@ -2,7 +2,7 @@ import React from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { OpportunityCardEnhanced } from './opportunity-card-enhanced';
+import { OpportunityCardEnhanced } from './opportunity-card';
 import { QuickAddCard } from '@/components/ui/quick-add-card';
 import { Badge } from '@/components/ui/badge';
 import type { Opportunity } from '@/types/opportunity.types';

@@ -55,6 +55,7 @@ class InvoiceFactory extends Factory
             'tax' => $tax,
             'total' => $total,
             'currency' => 'USD',
+            'sent_at' => $issueDate,
             'status' => $this->faker->randomElement($statuses),
             'lines' => $lines,
             'notes' => $this->faker->sentence(),

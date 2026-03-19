@@ -3,9 +3,9 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
-return new class extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
      */
@@ -28,6 +28,19 @@ return new class extends Migration
 
         Schema::create('tasks', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('parent_id')->nullable()->constrained('tasks')->nullOnDelete();
+            $table->string('wbs_code', 50)->nullable(); // e.g. "1.2.3"
+            $table->integer('sort_order')->default(0);
+ 
+            // Ch6 — Activity dependencies (predecessor)
+            $table->unsignedBigInteger('predecessor_task_id')->nullable();
+            $table->enum('dependency_type', ['FS', 'SS', 'FF', 'SF'])->default('FS');
+            // FS = Finish-to-Start (most common), SS = Start-to-Start, FF = Finish-to-Finish, SF = Start-to-Finish
+            $table->integer('duration_days')->nullable();// Planned duration in working days
+  
+            // Foreign key (no constraint — self-referential with soft deletes gets complicated)
+            $table->index('predecessor_task_id');
+            $table->index('wbs_code');
             $table->foreignId('project_id')->constrained('projects')->cascadeOnDelete();
             $table->foreignId('milestone_id')->nullable()->constrained('milestones')->nullOnDelete();
             $table->string('title');
@@ -41,8 +54,12 @@ return new class extends Migration
             $table->date('due_date')->nullable();
             $table->integer('estimated_hours')->nullable();
             $table->integer('spent_hours')->default(0);
+            $table->decimal('actual_cost', 10, 2)->nullable();// AC for EVM
+            $table->decimal('planned_cost', 10, 2)->nullable();// PV component
             $table->string('group')->default('None');
             $table->json('metadata')->nullable();
+            $table->text('delay_reason')->nullable();
+            $table->text('mitigation')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
@@ -71,6 +88,33 @@ return new class extends Migration
             
             // Soft deletes
             $table->index('deleted_at', 'idx_tasks_deleted_at');
+            $table->index('parent_id', 'idx_tasks_parent_id');
+            $table->index(['project_id', 'wbs_code'], 'idx_tasks_wbs');
+        });
+
+        Schema::create('task_dependencies', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('task_id')
+                  ->constrained('tasks')
+                  ->cascadeOnDelete();
+            $table->foreignId('depends_on_task_id')
+                  ->constrained('tasks')
+                  ->cascadeOnDelete();
+ 
+            // Dependency type (Precedence Diagramming Method — PMBOK §6.3.2)
+            // FS = Finish-to-Start (B can't start until A finishes — most common)
+            // SS = Start-to-Start  (B can't start until A starts)
+            // FF = Finish-to-Finish (B can't finish until A finishes)
+            // SF = Start-to-Finish (rare — B can't finish until A starts)
+            $table->enum('type', ['FS', 'SS', 'FF', 'SF'])->default('FS');
+ 
+            // Lag (positive) or Lead (negative) in hours
+            $table->integer('lag_hours')->default(0);
+ 
+            $table->timestamps();
+ 
+            $table->unique(['task_id', 'depends_on_task_id'], 'task_dependency_unique');
+            $table->index('depends_on_task_id');
         });
 
         // time logs for tasks (for tracking cost)

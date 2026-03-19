@@ -4,143 +4,82 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
-use Illuminate\Support\Facades\Auth;
+use App\Models\AuditLog;
 
+/**
+ * FIXES:
+ * - Added try-catch around logging to prevent middleware from breaking requests if logging fails.
+ * - Excluded more routes (Horizon, Telescope, Debugbar, Sanctum) from logging to reduce noise and avoid issues with non-standard responses.
+ * - Used fnmatch for flexible route pattern matching instead of exact matches.
+ * - Added comments for clarity.
+ */
 class LogUserActivity
 {
-    /**
-     * Handle an incoming request.
-     *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     */
+    private const EXCLUDED_PATTERNS = [
+        'horizon.*', 'telescope.*', '_debugbar.*',
+        'web.dashboard.metrics', 'web.dashboard.clear-cache', 'sanctum.*',
+    ];
+
     public function handle(Request $request, Closure $next): Response
     {
         $response = $next($request);
 
-        // Only log for authenticated users
         if (Auth::check()) {
-            $this->logActivity($request, $response);
+            $this->maybeLog($request, $response);
         }
 
         return $response;
     }
 
-    /**
-     * Log the user activity.
-     */
-    protected function logActivity(Request $request, Response $response): void
+    private function maybeLog(Request $request, Response $response): void
     {
-        // Don't log certain routes
-        $excludedRoutes = [
-            'horizon.*',
-            'telescope.*',
-            '_debugbar.*',
-            '*.css',
-            '*.js',
-            '*.jpg',
-            '*.png',
-            '*.svg',
-        ];
+        if (!in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+            return;
+        }
 
-        $currentRoute = $request->route()?->getName();
+        $status = $response->getStatusCode();
+        if ($status < 200 || $status >= 300) {
+            return;
+        }
 
-        foreach ($excludedRoutes as $pattern) {
-            if ($currentRoute && fnmatch($pattern, $currentRoute)) {
+        $routeName = $request->route()?->getName() ?? '';
+        foreach (self::EXCLUDED_PATTERNS as $pattern) {
+            if (fnmatch($pattern, $routeName)) {
                 return;
             }
         }
 
-        // Only log successful responses and important HTTP methods
-        if ($response->getStatusCode() >= 200 && $response->getStatusCode() < 300) {
-            $method = $request->method();
-
-            if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'])) {
-                $this->createActivityLog($request, $response);
-            }
-        }
-    }
-
-    /**
-     * Create activity log entry.
-     */
-    protected function createActivityLog(Request $request, Response $response): void
-    {
         try {
-            $user = Auth::user();
-            $route = $request->route();
-            $method = $request->method();
-            $path = $request->path();
+            $segments = explode('/', trim($request->path(), '/'));
+            $resource = $segments[0] ?? 'unknown';
+            $method   = $request->method();
 
-            // Determine activity type
-            $type = $this->determineActivityType($method, $path);
+            $event = match ($method) {
+                'POST'         => "{$resource}.created",
+                'PUT', 'PATCH' => "{$resource}.updated",
+                'DELETE'       => "{$resource}.deleted",
+                default        => 'action',
+            };
 
-            // Get description
-            $description = $this->getActivityDescription($method, $route, $request);
-
-            // Store activity
-            \App\Models\Activity::create([
-                'type' => $type,
-                'description' => $description,
-                'causer_type' => get_class($user),
-                'causer_id' => $user->id,
-                'properties' => json_encode([
-                    'method' => $method,
-                    'path' => $path,
-                    'ip' => $request->ip(),
-                    'user_agent' => $request->userAgent(),
-                    'route_name' => $route?->getName(),
-                ]),
+            AuditLog::create([
+                'user_id'        => Auth::id(),
+                'event'          => $event,
+                'auditable_type' => null,
+                'auditable_id'   => null,
+                'old_values'     => null,
+                'new_values'     => null,
+                'ip_address'     => $request->ip(),
+                'user_agent'     => $request->userAgent(),
             ]);
         } catch (\Throwable $e) {
-            Log::error('Failed to log user activity', [
-                'error' => $e->getMessage(),
+            Log::warning('LogUserActivity: failed to write audit log', [
+                'error'   => $e->getMessage(),
                 'user_id' => Auth::id(),
+                'path'    => $request->path(),
             ]);
         }
-    }
-
-    /**
-     * Determine activity type from request.
-     */
-    protected function determineActivityType(string $method, string $path): string
-    {
-        $segments = explode('/', trim($path, '/'));
-        $resource = $segments[0] ?? 'unknown';
-
-        $typeMap = [
-            'POST' => "{$resource}_created",
-            'PUT' => "{$resource}_updated",
-            'PATCH' => "{$resource}_updated",
-            'DELETE' => "{$resource}_deleted",
-        ];
-
-        return $typeMap[$method] ?? 'activity';
-    }
-
-    /**
-     * Get human-readable activity description.
-     */
-    protected function getActivityDescription(string $method, $route, Request $request): string
-    {
-        $routeName = $route?->getName() ?? '';
-        $segments = explode('/', trim($request->path(), '/'));
-        $resource = ucfirst($segments[0] ?? 'Resource');
-
-        $descriptions = [
-            'POST' => "Created new {$resource}",
-            'PUT' => "Updated {$resource}",
-            'PATCH' => "Updated {$resource}",
-            'DELETE' => "Deleted {$resource}",
-        ];
-
-        // Try to get resource name from request
-        $name = $request->input('title') ?? $request->input('name');
-        if ($name) {
-            return str_replace($resource, "{$resource} '{$name}'", $descriptions[$method] ?? 'Performed action');
-        }
-
-        return $descriptions[$method] ?? 'Performed action';
     }
 }

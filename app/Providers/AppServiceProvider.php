@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\RateLimiter;
+
 class AppServiceProvider extends ServiceProvider
 {
     /**
@@ -14,7 +15,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        if (!empty(config('services.openai.api_key'))) {
+        if (!empty(config('services.anthropic.api_key'))) {
+            $this->app->bind(
+                \App\Services\AI\OpenAIClientInterface::class,
+                \App\Services\AI\ClaudeAIClient::class
+            );
+        } elseif (!empty(config('services.openai.api_key'))) {
             $this->app->bind(
                 \App\Services\AI\OpenAIClientInterface::class,
                 \App\Services\AI\OpenAIClient::class
@@ -33,20 +39,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureRateLimiting();
-
-        // Register model policies so `Gate::authorize('action', Model::class)` works
-
-        // Storage::disk('local')->buildTemporaryUrlsUsing(
-
-        //     function (string $path, DateTime $expiration, array $options) {
-        //         return URL::temporarySignedRoute(
-        //             'files.download',
-        //             $expiration,
-        //             array_merge($options, ['path' => $path])
-        //         );
-        //     }
-
-        // );
 
         if (app()->environment('local')) {
             DB::listen(function ($query) {

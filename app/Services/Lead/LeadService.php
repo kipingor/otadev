@@ -20,7 +20,7 @@ class LeadService
     public function list(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         // Start with eager loaded query
-        $query = Lead::indexQuery();
+        $query = Lead::with(['owner', 'pipelineStage']);
 
         // Apply filters
         if (!empty($filters['owner_id'])) {
@@ -315,5 +315,19 @@ class LeadService
             // Priority column doesn't exist
             return [];
         }
+    }
+
+    public function transition(string $newStatus, Lead $lead): Lead
+    {
+        $validStatuses = ['new', 'contacted', 'qualified', 'won', 'lost'];
+        if (!in_array($newStatus, $validStatuses)) {
+            throw new \InvalidArgumentException("Invalid status: {$newStatus}");
+        }
+
+        $lead->update(['status' => $newStatus]);
+
+        event(new LeadUpdated($lead));
+
+        return $lead->fresh(['owner', 'pipelineStage']);
     }
 }

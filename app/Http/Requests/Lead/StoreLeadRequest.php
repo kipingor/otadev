@@ -19,6 +19,8 @@ class StoreLeadRequest extends FormRequest
         return [
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:5000'],
+            'estimated_value' => ['numeric'],
+            'ai_analysis' => ['nullable', 'array'],
             'type' => ['required', 'in:document,conversation'],
             'owner_id' => ['required', 'exists:users,id'],
             'pipeline_stage_id' => ['required', 'exists:pipeline_stages,id'],

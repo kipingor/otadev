@@ -12,16 +12,18 @@ use Illuminate\Database\Eloquent\Collection;
 
 class ProjectService
 {
-    /**
-     * Get paginated list of projects with filters
-     */
+    // ── CRUD ──────────────────────────────────────────────────────────────────
+
     public function list(array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         $query = Project::query()->with(['tasks', 'milestones']);
 
-        // Apply filters
         if (isset($filters['status'])) {
             $query->where('status', $filters['status']);
+        }
+
+        if (isset($filters['phase'])) {
+            $query->where('phase', $filters['phase']);
         }
 
         if (isset($filters['search'])) {
@@ -34,267 +36,237 @@ class ProjectService
         return $query->latest()->paginate($perPage);
     }
 
-    /**
-     * Create a new project
-     */
     public function create(array $data): Project
     {
         return DB::transaction(function () use ($data) {
-            $project = Project::create($data);
+            // Default phase to 'initiating' if not provided
+            $data['phase'] ??= 'initiating';
 
+            $project = Project::create($data);
             event(new ProjectCreated($project));
 
             return $project->load(['tasks', 'milestones']);
         });
     }
 
-    /**
-     * Update an existing project
-     */
     public function update(Project $project, array $data): Project
     {
         return DB::transaction(function () use ($project, $data) {
             $project->update($data);
-
             return $project->refresh()->load(['tasks', 'milestones']);
         });
     }
 
-    /**
-     * Delete a project
-     */
     public function delete(Project $project): bool
     {
         return DB::transaction(function () use ($project) {
-            // Delete related tasks and milestones
             $project->tasks()->delete();
             $project->milestones()->delete();
+            $project->risks()->delete();
+            $project->issues()->delete();
+            $project->changes()->delete();
+            $project->stakeholders()->delete();
 
             return $project->delete();
         });
     }
 
-    /**
-     * Add team member to project
-     */
-    public function addTeamMember(Project $project, int $userId, ?string $role = null): void
-    {
-        DB::transaction(function () use ($project, $userId, $role) {
-            // Check if already a member
-            $existing = $project->team()->where('user_id', $userId)->exists();
+    // ── Status & Phase ────────────────────────────────────────────────────────
 
-            if (!$existing) {
-                $project->team()->attach($userId, [
-                    'role' => $role,
-                    'joined_at' => now(),
-                ]);
-            }
-        });
-    }
-
-    /**
-     * Remove team member from project
-     */
-    public function removeTeamMember(Project $project, int $userId): void
+    public function updateStatus(Project $project, string $status): Project
     {
-        DB::transaction(function () use ($project, $userId) {
-            $project->team()->detach($userId);
-        });
-    }
+        $project->update(['status' => $status]);
 
-    /**
-     * Update team member role
-     */
-    public function updateTeamMemberRole(Project $project, int $userId, string $role): void
-    {
-        DB::transaction(function () use ($project, $userId, $role) {
-            $project->team()->updateExistingPivot($userId, [
-                'role' => $role,
+        if ($status === 'completed') {
+            $project->update([
+                'completed_at' => now(),
+                'phase'        => 'closing',
             ]);
-        });
+            event(new ProjectCompleted($project->id));
+        }
+
+        return $project->refresh();
     }
 
     /**
-     * Calculate project progress
+     * Advance the project to the next PMBOK process group phase.
+     * Phases progress: initiating → planning → executing
+     *                  → monitoring_controlling → closing.
      */
+    public function advancePhase(Project $project): Project
+    {
+        $phases = Project::PHASES;
+        $current = array_search($project->phase, $phases);
+
+        if ($current !== false && isset($phases[$current + 1])) {
+            $project->update(['phase' => $phases[$current + 1]]);
+        }
+
+        return $project->refresh();
+    }
+
+    // ── Progress ──────────────────────────────────────────────────────────────
+
     public function calculateProgress(Project $project): array
     {
-        $totalTasks = $project->tasks()->count();
+        $totalTasks     = $project->tasks()->count();
         $completedTasks = $project->tasks()->whereNotNull('completed_at')->count();
-        
-        $totalMilestones = $project->milestones()->count();
+
+        $totalMilestones     = $project->milestones()->count();
         $completedMilestones = $project->milestones()->whereNotNull('completed_at')->count();
 
-        $taskProgress = $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100, 2) : 0;
-        $milestoneProgress = $totalMilestones > 0 ? round(($completedMilestones / $totalMilestones) * 100, 2) : 0;
+        $taskProgress      = $totalTasks > 0
+            ? round(($completedTasks / $totalTasks) * 100, 2) : 0;
+        $milestoneProgress = $totalMilestones > 0
+            ? round(($completedMilestones / $totalMilestones) * 100, 2) : 0;
 
-        // Overall progress (weighted: 70% tasks, 30% milestones)
+        // Weighted: 70% tasks, 30% milestones (same as original)
         $overallProgress = round(($taskProgress * 0.7) + ($milestoneProgress * 0.3), 2);
 
         return [
-            'overall' => $overallProgress,
-            'tasks' => [
-                'total' => $totalTasks,
+            'overall'    => $overallProgress,
+            'tasks'      => [
+                'total'     => $totalTasks,
                 'completed' => $completedTasks,
-                'progress' => $taskProgress,
+                'progress'  => $taskProgress,
             ],
             'milestones' => [
-                'total' => $totalMilestones,
+                'total'     => $totalMilestones,
                 'completed' => $completedMilestones,
-                'progress' => $milestoneProgress,
+                'progress'  => $milestoneProgress,
             ],
         ];
     }
 
+    // ── PMBOK §7.4 — Earned Value Management ──────────────────────────────────
+
     /**
-     * Get project timeline
+     * Calculate full EVM metrics for a project.
+     *
+     * Acronyms per PMBOK §7.4.2 Earned Value Analysis table:
+     *  PV  — Planned Value       (budgeted value of work planned to date)
+     *  EV  — Earned Value        (budgeted value of work actually completed)
+     *  AC  — Actual Cost         (actual cost incurred to date)
+     *  BAC — Budget At Completion (total approved budget)
+     *  CV  — Cost Variance       EV − AC  (negative = over budget)
+     *  SV  — Schedule Variance   EV − PV  (negative = behind schedule)
+     *  CPI — Cost Performance Index    EV / AC  (< 1 = over budget)
+     *  SPI — Schedule Performance Index EV / PV (< 1 = behind schedule)
+     *  EAC — Estimate At Completion    BAC / CPI  (projected total cost)
+     *  ETC — Estimate To Complete      EAC − AC   (remaining cost to finish)
+     *  VAC — Variance At Completion    BAC − EAC  (projected surplus/deficit)
+     *  TCPI— To-Complete Performance Index (BAC−EV)/(BAC−AC)
+     *
+     * AC is derived from:
+     *  1. Actual expense records (project_expenses table) if available.
+     *  2. Otherwise, task spent_hours × an implied hourly rate (budget/estimated_hours).
+     *
+     * @param  Project $project  Must have tasks loaded or will be queried.
+     * @param  float   $progress Overall progress percentage (0–100).
+     * @return array
      */
-    public function getTimeline(Project $project): array
+    public function calculateEVM(Project $project, float $progress): array
     {
-        $milestones = $project->milestones()
-            ->orderBy('due_date')
-            ->get()
-            ->map(function ($milestone) {
-                return [
-                    'id' => $milestone->id,
-                    'title' => $milestone->title,
-                    'due_date' => $milestone->due_date,
-                    'completed' => $milestone->completed_at !== null,
-                    'completed_at' => $milestone->completed_at,
-                    'type' => 'milestone',
-                ];
-            });
+        $bac = $project->bac;
 
-        $tasks = $project->tasks()
-            ->whereNotNull('due_date')
-            ->orderBy('due_date')
-            ->get()
-            ->map(function ($task) {
-                return [
-                    'id' => $task->id,
-                    'title' => $task->title,
-                    'due_date' => $task->due_date,
-                    'completed' => $task->completed_at !== null,
-                    'completed_at' => $task->completed_at,
-                    'type' => 'task',
-                ];
-            });
+        // ── Planned Value ─────────────────────────────────────────────────────
+        $pv = $project->planned_value ?? 0.0;
 
-        $timeline = $milestones->merge($tasks)->sortBy('due_date')->values();
+        // ── Earned Value ──────────────────────────────────────────────────────
+        $ev = $bac > 0 ? round($bac * ($progress / 100), 2) : 0.0;
+
+        // ── Actual Cost ───────────────────────────────────────────────────────
+        // Prefer expenses table; fall back to hours-based estimate.
+        $ac = $this->calculateActualCost($project);
+
+        // Guard: avoid division-by-zero
+        $cpi  = $ac > 0   ? round($ev / $ac, 3)   : null;
+        $spi  = $pv > 0   ? round($ev / $pv, 3)   : null;
+        $cv   = round($ev - $ac, 2);
+        $sv   = round($ev - $pv, 2);
+        $eac  = ($cpi && $cpi > 0) ? round($bac / $cpi, 2) : null;
+        $etc  = $eac !== null ? round($eac - $ac, 2) : null;
+        $vac  = $eac !== null ? round($bac - $eac, 2) : null;
+        $tcpi = ($bac > 0 && ($bac - $ac) > 0)
+                ? round(($bac - $ev) / ($bac - $ac), 3)
+                : null;
 
         return [
-            'items' => $timeline,
-            'start_date' => $project->start_date,
-            'end_date' => $project->end_date,
-            'current_date' => now()->toDateString(),
+            'bac'  => $bac,
+            'pv'   => $pv,
+            'ev'   => $ev,
+            'ac'   => $ac,
+            'cv'   => $cv,   // Cost Variance
+            'sv'   => $sv,   // Schedule Variance
+            'cpi'  => $cpi,  // Cost Performance Index
+            'spi'  => $spi,  // Schedule Performance Index
+            'eac'  => $eac,  // Estimate At Completion
+            'etc'  => $etc,  // Estimate To Complete
+            'vac'  => $vac,  // Variance At Completion
+            'tcpi' => $tcpi, // To-Complete Performance Index
+            // Interpretations for the UI
+            'cost_status'     => $this->interpretIndex($cpi),
+            'schedule_status' => $this->interpretIndex($spi),
         ];
     }
 
     /**
-     * Mark project as completed
-     */
-    public function markAsCompleted(Project $project): Project
-    {
-        return DB::transaction(function () use ($project) {
-            $project->update([
-                'status' => 'completed',
-                'completed_at' => now(),
-            ]);
-
-            event(new ProjectCompleted($project->id));
-
-            return $project->refresh();
-        });
-    }
-
-    /**
-     * Get projects by status
-     */
-    public function getByStatus(string $status): Collection
-    {
-        return Project::where('status', $status)
-            ->with(['tasks', 'milestones'])
-            ->latest()
-            ->get();
-    }
-
-    /**
-     * Get active projects
-     */
-    public function getActive(): Collection
-    {
-        return $this->getByStatus('in_progress');
-    }
-
-    /**
-     * Get completed projects
-     */
-    public function getCompleted(): Collection
-    {
-        return $this->getByStatus('completed');
-    }
-
-    /**
-     * Get projects on hold
-     */
-    public function getOnHold(): Collection
-    {
-        return $this->getByStatus('on_hold');
-    }
-
-    /**
-     * Get overdue projects
-     */
-    public function getOverdue(): Collection
-    {
-        return Project::where('status', 'in_progress')
-            ->whereNotNull('end_date')
-            ->where('end_date', '<', now())
-            ->with(['tasks', 'milestones'])
-            ->get();
-    }
-
-    /**
-     * Get projects by team member
-     */
-    public function getByTeamMember(User $user): Collection
-    {
-        return Project::whereHas('team', function ($query) use ($user) {
-            $query->where('user_id', $user->id);
-        })
-        ->with(['tasks', 'milestones'])
-        ->latest()
-        ->get();
-    }
-
-    /**
-     * Calculate budget utilization.
+     * Derive Actual Cost (AC).
      *
-     * Full expense tracking (an `expenses` table) has not been migrated yet.
-     * Until that feature is built, we derive "effort spent" from the task
-     * time-tracking data that already exists:
-     *
-     *   estimated_hours  → budget (hours)
-     *   spent_hours      → consumed (hours, tracked per task)
-     *
-     * This gives a meaningful, accurate progress indicator without fabricating
-     * numbers.  When a real expense model is wired up, replace the two
-     * $spentHours/$budgetHours lines with actual monetary aggregates.
+     * Tries the expenses table first; falls back to hours-based proxy.
+     * When hours are used, an implied rate is computed as budget / estimated_hours
+     * so that the EVM figures remain meaningful even before an expense module is live.
      */
+    protected function calculateActualCost(Project $project): float
+    {
+        // 1. Real expenses (if the expenses table/model exists)
+        try {
+            $expensesTotal = $project->expenses()->sum('amount');
+            if ($expensesTotal > 0) {
+                return (float) $expensesTotal;
+            }
+        } catch (\Exception $e) {
+            // Table not yet migrated — fall through
+        }
+
+        // 2. Hours-based proxy
+        $estimatedHours = (float) $project->tasks()->sum('estimated_hours');
+        $spentHours     = (float) $project->tasks()->sum('spent_hours');
+
+        if ($estimatedHours <= 0 || $project->bac <= 0) {
+            return 0.0;
+        }
+
+        $impliedRate = $project->bac / $estimatedHours; // cost per hour
+        return round($spentHours * $impliedRate, 2);
+    }
+
+    /**
+     * Interpret a CPI or SPI value into a traffic-light status string.
+     * PMBOK §7.4.2 — values above 1.0 are favourable.
+     */
+    protected function interpretIndex(?float $index): string
+    {
+        if ($index === null) return 'unknown';
+        if ($index >= 1.0)   return 'on_track';
+        if ($index >= 0.8)   return 'at_risk';
+        return 'critical';
+    }
+
+    // ── Budget Utilization (legacy — kept for backward compat) ────────────────
+
     public function calculateBudgetUtilization(Project $project): array
     {
-        $budgetHours  = (int) $project->tasks()->sum('estimated_hours');
-        $spentHours   = (int) $project->tasks()->sum('spent_hours');
+        $budgetHours = (int) $project->tasks()->sum('estimated_hours');
+        $spentHours  = (int) $project->tasks()->sum('spent_hours');
 
-        // If no hour estimates exist at all, fall back to monetary budget so
-        // the card is still useful when a budget figure was entered.
         if ($budgetHours === 0 && $project->budget) {
             return [
                 'budget'      => (float) $project->budget,
                 'spent'       => 0,
                 'remaining'   => (float) $project->budget,
                 'utilization' => 0,
-                'mode'        => 'monetary',   // hint for the front-end label
+                'mode'        => 'monetary',
             ];
         }
 
@@ -308,144 +280,227 @@ class ProjectService
             'spent'       => $spentHours,
             'remaining'   => $remaining,
             'utilization' => $utilization,
-            'mode'        => 'hours',          // hint for the front-end label
+            'mode'        => 'hours',
         ];
     }
 
-    /**
-     * Get project statistics
-     */
-    public function getStatistics(): array
+    // ── Timeline ──────────────────────────────────────────────────────────────
+
+    public function getTimeline(Project $project): array
     {
+        $milestones = $project->milestones()
+            ->orderBy('due_date')
+            ->get()
+            ->map(fn ($m) => [
+                'id'           => $m->id,
+                'title'        => $m->title,
+                'due_date'     => $m->due_date,
+                'completed'    => $m->completed_at !== null,
+                'completed_at' => $m->completed_at,
+                'type'         => 'milestone',
+            ]);
+
+        $tasks = $project->tasks()
+            ->whereNotNull('due_date')
+            ->orderBy('due_date')
+            ->get()
+            ->map(fn ($t) => [
+                'id'           => $t->id,
+                'title'        => $t->title,
+                'due_date'     => $t->due_date,
+                'completed'    => $t->completed_at !== null,
+                'completed_at' => $t->completed_at,
+                'type'         => 'task',
+                'wbs_code'     => $t->wbs_code ?? null,
+            ]);
+
         return [
-            'total' => Project::count(),
-            'by_status' => [
-                'planning' => Project::where('status', 'planning')->count(),
-                'active' => Project::where('status', 'active')->count(),
-                'in_progress' => Project::where('status', 'in_progress')->count(),
-                'on_hold' => Project::where('status', 'on_hold')->count(),
-                'completed' => Project::where('status', 'completed')->count(),
-                'cancelled' => Project::where('status', 'cancelled')->count(),
-            ],
-            'overdue' => $this->getOverdue()->count(),
-            'total_budget' => Project::sum('budget'),
-            'average_completion_time' => $this->calculateAverageCompletionTime(),
+            'items'        => $milestones->merge($tasks)->sortBy('due_date')->values(),
+            'start_date'   => $project->start_date,
+            'end_date'     => $project->end_date,
+            'current_date' => now()->toDateString(),
         ];
     }
 
+    // ── Risk Helpers ──────────────────────────────────────────────────────────
+
     /**
-     * Calculate average completion time in days
+     * Return summarised risk metrics for the show page dashboard.
      */
-    protected function calculateAverageCompletionTime(): float
+    public function getRiskSummary(Project $project): array
     {
-        $completedProjects = Project::where('status', 'completed')
-            ->whereNotNull('completed_at')
-            ->get();
+        $risks = $project->risks()->where('status', '!=', 'closed')->get();
 
-        if ($completedProjects->isEmpty()) {
-            return 0;
-        }
-
-        $totalDays = $completedProjects->sum(function ($project) {
-            return $project->created_at->diffInDays($project->completed_at);
-        });
-
-        return round($totalDays / $completedProjects->count(), 2);
+        return [
+            'total'       => $risks->count(),
+            'high'        => $risks->filter(fn ($r) => ($r->probability * $r->impact) >= 15)->count(),
+            'medium'      => $risks->filter(fn ($r) => ($r->probability * $r->impact) >= 6 && ($r->probability * $r->impact) < 15)->count(),
+            'low'         => $risks->filter(fn ($r) => ($r->probability * $r->impact) < 6)->count(),
+            'unmitigated' => $risks->whereNull('response_type')->count(),
+        ];
     }
 
-    /**
-     * Update project status
-     */
-    public function updateStatus(Project $project, string $status): Project
-    {
-        $project->update(['status' => $status]);
+    // ── At Risk ───────────────────────────────────────────────────────────────
 
-        if ($status === 'completed') {
-            $project->update(['completed_at' => now()]);
-            event(new ProjectCompleted($project->id));
-        }
-
-        return $project->refresh();
-    }
-
-    /**
-     * Check if project is at risk (overdue or behind schedule)
-     */
     public function isAtRisk(Project $project): bool
     {
-        // Check if overdue
-        if ($project->end_date && now()->isAfter($project->end_date) && $project->status === 'in_progress') {
+        if ($project->end_date && now()->isAfter($project->end_date) && $project->status === 'active') {
             return true;
         }
 
-        // Check if behind schedule
         $progress = $this->calculateProgress($project);
-        
+
         if ($project->start_date && $project->end_date) {
-            $totalDays = $project->start_date->diffInDays($project->end_date);
-            $daysElapsed = $project->start_date->diffInDays(now());
-            
-            if ($totalDays > 0) {
-                $expectedProgress = ($daysElapsed / $totalDays) * 100;
-                
-                // If actual progress is 20% behind expected progress
-                if ($progress['overall'] < ($expectedProgress - 20)) {
-                    return true;
-                }
+            $totalDays    = max(1, $project->start_date->diffInDays($project->end_date));
+            $daysElapsed  = $project->start_date->diffInDays(now());
+            $expectedProgress = ($daysElapsed / $totalDays) * 100;
+
+            if ($progress['overall'] < ($expectedProgress - 20)) {
+                return true;
             }
         }
 
         return false;
     }
 
-    /**
-     * Get projects at risk
-     */
     public function getAtRisk(): Collection
     {
-        return Project::where('status', 'in_progress')
+        return Project::where('status', 'active')
             ->get()
-            ->filter(fn($project) => $this->isAtRisk($project));
+            ->filter(fn ($p) => $this->isAtRisk($p));
     }
 
-    /**
-     * Clone a project
-     */
+    // ── Statistics ────────────────────────────────────────────────────────────
+
+    public function getStatistics(): array
+    {
+        return [
+            'total'      => Project::count(),
+            'by_status'  => collect(Project::STATUSES)
+                ->mapWithKeys(fn ($s) => [$s => Project::where('status', $s)->count()])
+                ->toArray(),
+            'by_phase'   => collect(Project::PHASES)
+                ->mapWithKeys(fn ($p) => [$p => Project::where('phase', $p)->count()])
+                ->toArray(),
+            'overdue'    => Project::where('status', 'active')
+                ->whereNotNull('end_date')
+                ->where('end_date', '<', now())
+                ->count(),
+            'total_budget'              => Project::sum('budget'),
+            'average_completion_time'   => $this->calculateAverageCompletionTime(),
+        ];
+    }
+
+    protected function calculateAverageCompletionTime(): float
+    {
+        $completed = Project::where('status', 'completed')
+            ->whereNotNull('completed_at')
+            ->get();
+
+        if ($completed->isEmpty()) return 0;
+
+        $totalDays = $completed->sum(fn ($p) => $p->created_at->diffInDays($p->completed_at));
+        return round($totalDays / $completed->count(), 2);
+    }
+
+    // ── Clone ─────────────────────────────────────────────────────────────────
+
     public function clone(Project $project, bool $includeTasks = true, bool $includeTeam = true): Project
     {
         return DB::transaction(function () use ($project, $includeTasks, $includeTeam) {
-            $data = $project->toArray();
-            
-            // Remove unique fields
-            unset($data['id'], $data['created_at'], $data['updated_at'], $data['completed_at']);
-            
-            // Update name
-            $data['name'] = $data['name'] . ' (Copy)';
-            $data['status'] = 'planning';
-            
+            $data = $project->only($project->getFillable());
+            unset($data['id']);
+            $data['name']     = $data['name'] . ' (Copy)';
+            $data['status']   = 'planning';
+            $data['phase']    = 'initiating';
+            $data['completed_at'] = null;
+
             $newProject = Project::create($data);
 
-            // Clone tasks if requested
             if ($includeTasks) {
                 foreach ($project->tasks as $task) {
-                    $taskData = $task->toArray();
-                    unset($taskData['id'], $taskData['created_at'], $taskData['updated_at']);
+                    $taskData = $task->only($task->getFillable());
+                    unset($taskData['id']);
                     $taskData['project_id'] = $newProject->id;
+                    $taskData['completed_at'] = null;
                     $newProject->tasks()->create($taskData);
                 }
             }
 
-            // Clone team if requested
             if ($includeTeam) {
-                foreach ($project->team as $member) {
-                    $newProject->team()->attach($member->id, [
-                        'role' => $member->pivot->role,
-                        'joined_at' => now(),
+                foreach ($project->teamMembers as $member) {
+                    $newProject->teamMembers()->create([
+                        'user_id'               => $member->user_id,
+                        'role'                  => $member->role,
+                        'allocation_percentage' => $member->allocation_percentage,
+                        'joined_at'             => now(),
                     ]);
                 }
             }
 
-            return $newProject->load(['tasks', 'milestones', 'team']);
+            return $newProject->load(['tasks', 'milestones', 'teamMembers']);
         });
+    }
+
+    // ── Mark Completed ───────────────────────────────────────────────────────
+
+    public function markAsCompleted(Project $project): Project
+    {
+        return DB::transaction(function () use ($project) {
+            $project->update([
+                'status'       => 'completed',
+                'phase'        => 'closing',
+                'completed_at' => now(),
+            ]);
+            event(new ProjectCompleted($project->id));
+            return $project->refresh();
+        });
+    }
+
+    public function getByStatus(string $status): Collection
+    {
+        return Project::where('status', $status)->with(['tasks', 'milestones'])->latest()->get();
+    }
+
+    public function getActive(): Collection    { return $this->getByStatus('active'); }
+    public function getCompleted(): Collection { return $this->getByStatus('completed'); }
+    public function getOnHold(): Collection    { return $this->getByStatus('on_hold'); }
+
+    public function getOverdue(): Collection
+    {
+        return Project::where('status', 'active')
+            ->whereNotNull('end_date')
+            ->where('end_date', '<', now())
+            ->with(['tasks', 'milestones'])
+            ->get();
+    }
+
+    public function getByTeamMember(User $user): Collection
+    {
+        return Project::whereHas('teamMembers', fn ($q) => $q->where('user_id', $user->id))
+            ->with(['tasks', 'milestones'])
+            ->latest()
+            ->get();
+    }
+
+    // ── Team members ──────────────────────────────────────────────────────────
+
+    public function addTeamMember(Project $project, int $userId, ?string $role = null): void
+    {
+        DB::transaction(function () use ($project, $userId, $role) {
+            $exists = $project->teamMembers()->where('user_id', $userId)->exists();
+            if (! $exists) {
+                $project->teamMembers()->create([
+                    'user_id'   => $userId,
+                    'role'      => $role,
+                    'joined_at' => now(),
+                ]);
+            }
+        });
+    }
+
+    public function removeTeamMember(Project $project, int $userId): void
+    {
+        $project->teamMembers()->where('user_id', $userId)->delete();
     }
 }

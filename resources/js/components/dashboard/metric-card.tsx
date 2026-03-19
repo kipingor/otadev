@@ -33,16 +33,16 @@ export function MetricCard({
 
         switch (format) {
             case 'currency':
-                return new Intl.NumberFormat('en-US', {
+                return new Intl.NumberFormat('en-KE', {
                     style: 'currency',
-                    currency: 'USD',
+                    currency: 'KES',
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 0,
                 }).format(val);
             case 'percentage':
                 return `${val.toFixed(1)}%`;
             default:
-                return val.toLocaleString();
+                return typeof val === "number" ? val.toLocaleString() : '';
         }
     };
 

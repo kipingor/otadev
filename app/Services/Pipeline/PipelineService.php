@@ -38,7 +38,7 @@ class PipelineService
     public function getLeadsByStage(): Collection
     {
         return PipelineStage::with([
-            'leads' => fn($q) => $q
+            'leads' => fn ($q) => $q
                 ->orderBy('order')
                 ->with([
                     'owner',
@@ -60,12 +60,12 @@ class PipelineService
                 }
             ])
             ->get()
-            ->map(fn($stage) => [
+            ->map(fn ($stage) => [
                 'id' => $stage->id,
                 'name' => $stage->name,
                 'key' => $stage->key,
                 'color' => $stage->color ?? '#6b7280',
-                'leads' => $stage->leads->map(fn($lead) => [
+                'leads' => $stage->leads->map(fn ($lead) => [
                     'id' => $lead->id,
                     'title' => $lead->title,
                     'status' => $lead->status,
@@ -88,7 +88,7 @@ class PipelineService
             'totalValue' => Lead::whereHas('opportunity')
                 ->with('opportunity')
                 ->get()
-                ->sum(fn($lead) => $lead->opportunity->estimated_value ?? 0),
+                ->sum(fn ($lead) => $lead->opportunity->estimated_value ?? 0),
             'conversionRate' => $this->calculateConversionRate(),
         ];
     }
@@ -161,17 +161,12 @@ class PipelineService
                 ->orderBy('created_at')
                 ->get(['id', 'order']);
 
-            $updates = [];
             foreach ($leads as $index => $lead) {
-                $updates[] = [
-                    'id' => $lead->id,
-                    'order' => $index,
-                ];
-            }
-
-            // Batch update using upsert
-            if (!empty($updates)) {
-                Lead::upsert($updates, ['id'], ['order']);
+                // Use a direct UPDATE — never upsert, which would trigger
+                // NOT NULL constraints on columns absent from the payload.
+                DB::table('leads')
+                    ->where('id', $lead->id)
+                    ->update(['order' => $index, 'updated_at' => now()]);
             }
         });
     }
@@ -206,7 +201,8 @@ class PipelineService
         $totalValue = 0;
         if (class_exists(\App\Models\Opportunity::class)) {
             try {
-                $totalValue = \App\Models\Opportunity::whereNotIn('stage', ['won', 'lost'])
+                // FIX: Opportunity stage values are 'closed_won'/'closed_lost', not 'won'/'lost'
+                $totalValue = \App\Models\Opportunity::whereNotIn('stage', ['closed_won', 'closed_lost'])
                     ->sum('estimated_value') ?? 0;
             } catch (\Exception $e) {
                 $totalValue = 0;
@@ -224,7 +220,7 @@ class PipelineService
         }
 
         return [
-            'stages' => $stages->map(fn($stage) => [
+            'stages' => $stages->map(fn ($stage) => [
                 'id' => $stage->id,
                 'name' => $stage->name,
                 'key' => $stage->key ?? strtolower(str_replace(' ', '_', $stage->name)),

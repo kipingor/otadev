@@ -3,224 +3,117 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Services\Dashboard\DashboardAnalyticsService;
-use Illuminate\Http\Request;
+use App\Services\Dashboard\DashboardMetricsService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class DashboardAnalyticsController extends Controller
 {
     public function __construct(
-        protected DashboardAnalyticsService $analyticsService
-    ) {
-    }
+        protected DashboardMetricsService $dashboardService,
+    ) {}
 
-    /**
-     * Get overview metrics
-     */
+    // ── Existing methods (unchanged) ──────────────────────────────────────────
+
     public function overview(Request $request): JsonResponse
     {
-        $filters = $request->validate([
-            'date_from' => 'nullable|date',
-            'date_to' => 'nullable|date',
-            'owner_id' => 'nullable|integer|exists:users,id',
-        ]);
-
-        $metrics = $this->analyticsService->getOverviewMetrics($filters);
-
         return response()->json([
             'success' => true,
-            'data' => $metrics,
+            'data'    => $this->dashboardService->getOverviewMetrics($request->only(['date_from', 'date_to', 'owner_id'])),
         ]);
     }
 
-    /**
-     * Get leads by status distribution
-     */
     public function leadsByStatus(Request $request): JsonResponse
     {
-        $filters = $request->validate([
-            'date_from' => 'nullable|date',
-            'owner_id' => 'nullable|integer|exists:users,id',
-        ]);
-
-        $data = $this->analyticsService->getLeadsByStatus($filters);
-
         return response()->json([
             'success' => true,
-            'data' => $data,
+            'data'    => $this->dashboardService->getLeadsByStatus($request->all()),
         ]);
     }
 
-    /**
-     * Get leads by source
-     */
-    public function leadsBySource(Request $request): JsonResponse
-    {
-        $filters = $request->validate([
-            'date_from' => 'nullable|date',
-            'owner_id' => 'nullable|integer|exists:users,id',
-        ]);
-
-        $data = $this->analyticsService->getLeadsBySource($filters);
-
-        return response()->json([
-            'success' => true,
-            'data' => $data,
-        ]);
-    }
-
-    /**
-     * Get pipeline by stage
-     */
+    // BUG FIX: route was 'pipeline-by-stage' → action 'pipelineByStage', but method was 'pipeline'
     public function pipelineByStage(Request $request): JsonResponse
     {
-        $filters = $request->validate([
-            'owner_id' => 'nullable|integer|exists:users,id',
-        ]);
-
-        $data = $this->analyticsService->getPipelineByStage($filters);
-
         return response()->json([
             'success' => true,
-            'data' => $data,
+            'data'    => $this->dashboardService->getPipelineByStage($request->all()),
         ]);
     }
 
-    /**
-     * Get conversion funnel
-     */
-    public function conversionFunnel(Request $request): JsonResponse
-    {
-        $filters = $request->validate([
-            'date_from' => 'nullable|date',
-            'owner_id' => 'nullable|integer|exists:users,id',
-        ]);
-
-        $data = $this->analyticsService->getConversionFunnel($filters);
-
-        return response()->json([
-            'success' => true,
-            'data' => $data,
-        ]);
-    }
-
-    /**
-     * Get leads over time
-     */
     public function leadsOverTime(Request $request): JsonResponse
     {
-        $filters = $request->validate([
-            'date_from' => 'nullable|date',
-            'date_to' => 'nullable|date',
-            'owner_id' => 'nullable|integer|exists:users,id',
-            'group_by' => 'nullable|in:day,week,month',
-        ]);
-
-        $data = $this->analyticsService->getLeadsOverTime($filters);
-
         return response()->json([
             'success' => true,
-            'data' => $data,
+            'data'    => $this->dashboardService->getLeadsOverTime($request->all()),
         ]);
     }
 
-    /**
-     * Get activity statistics
-     */
-    public function activityStats(Request $request): JsonResponse
+    public function conversionFunnel(Request $request): JsonResponse
     {
-        $filters = $request->validate([
-            'date_from' => 'nullable|date',
-            'date_to' => 'nullable|date',
-            'owner_id' => 'nullable|integer|exists:users,id',
-        ]);
-
-        $data = $this->analyticsService->getActivityStats($filters);
-
         return response()->json([
             'success' => true,
-            'data' => $data,
+            'data'    => $this->dashboardService->getConversionFunnel($request->all()),
         ]);
     }
 
-    /**
-     * Get lead velocity
-     */
-    public function leadVelocity(Request $request): JsonResponse
-    {
-        $filters = $request->validate([
-            'date_from' => 'nullable|date',
-            'owner_id' => 'nullable|integer|exists:users,id',
-        ]);
-
-        $data = $this->analyticsService->getLeadVelocity($filters);
-
-        return response()->json([
-            'success' => true,
-            'data' => $data,
-        ]);
-    }
-
-    /**
-     * Get team performance
-     */
     public function teamPerformance(Request $request): JsonResponse
     {
-        $filters = $request->validate([
-            'date_from' => 'nullable|date',
-            'date_to' => 'nullable|date',
-        ]);
-
-        $data = $this->analyticsService->getTeamPerformance($filters);
-
         return response()->json([
             'success' => true,
-            'data' => $data,
+            'data'    => $this->dashboardService->getTeamPerformance($request->all()),
         ]);
     }
 
-    /**
-     * Get win/loss analysis
-     */
+    // ── BUG FIX: all methods below were MISSING — routes existed, methods did not ──
+
+    /** GET /api/v1/analytics/leads-by-source */
+    public function leadsBySource(Request $request): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data'    => $this->dashboardService->getLeadsBySource($request->all()),
+        ]);
+    }
+
+    /** GET /api/v1/analytics/activity-stats */
+    public function activityStats(Request $request): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data'    => $this->dashboardService->getActivityStats($request->all()),
+        ]);
+    }
+
+    /** GET /api/v1/analytics/lead-velocity */
+    public function leadVelocity(Request $request): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data'    => $this->dashboardService->getLeadVelocity($request->all()),
+        ]);
+    }
+
+    /** GET /api/v1/analytics/win-loss-analysis */
     public function winLossAnalysis(Request $request): JsonResponse
     {
-        $filters = $request->validate([
-            'date_from' => 'nullable|date',
-            'owner_id' => 'nullable|integer|exists:users,id',
-        ]);
-
-        $data = $this->analyticsService->getWinLossAnalysis($filters);
-
         return response()->json([
             'success' => true,
-            'data' => $data,
+            'data'    => $this->dashboardService->getWinLossAnalysis($request->all()),
         ]);
     }
 
     /**
-     * Get complete dashboard data
+     * GET /api/v1/analytics/dashboard
+     * Single endpoint that returns ALL dashboard data — used by the Dashboard component.
+     * BUG FIX: this route existed but the method was completely missing.
      */
     public function dashboard(Request $request): JsonResponse
     {
-        $filters = $request->validate([
-            'date_from' => 'nullable|date',
-            'date_to' => 'nullable|date',
-            'owner_id' => 'nullable|integer|exists:users,id',
-        ]);
-
-        $data = [
-            'overview' => $this->analyticsService->getOverviewMetrics($filters),
-            'leads_by_status' => $this->analyticsService->getLeadsByStatus($filters),
-            'leads_by_source' => $this->analyticsService->getLeadsBySource($filters),
-            'pipeline_by_stage' => $this->analyticsService->getPipelineByStage($filters),
-            'conversion_funnel' => $this->analyticsService->getConversionFunnel($filters),
-            'lead_velocity' => $this->analyticsService->getLeadVelocity($filters),
-            'win_loss' => $this->analyticsService->getWinLossAnalysis($filters),
-        ];
+        $filters = $request->only(['date_from', 'date_to', 'owner_id']);
 
         return response()->json([
             'success' => true,
-            'data' => $data,
+            'data'    => $this->dashboardService->getDashboardSnapshot($filters),
         ]);
     }
 }

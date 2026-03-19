@@ -22,7 +22,7 @@ export function AppShell({ children, variant = 'header' }: AppShellProps) {
             <SidebarProvider defaultOpen={isOpen}>
                 <GlobalSearch />
                 {children}
-            </SidebarProvider>;
+            </SidebarProvider>
         </>
     );
 }

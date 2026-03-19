@@ -6,6 +6,7 @@ use App\Models\Lead;
 use App\Services\AILeadService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * AI Controller for Lead Intelligence
@@ -247,7 +248,7 @@ class AILeadController extends Controller
 
         try {
             // Clear cache
-            \Cache::forget("lead_insights_{$lead->id}");
+            Cache::forget("lead_insights_{$lead->id}");
 
             // Regenerate insights
             $insights = $this->aiService->generateInsights($lead);

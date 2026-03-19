@@ -5,7 +5,10 @@ namespace App\Jobs;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use App\Models\Workflow;
+use App\Mail\WorkflowEmail;
 use App\Models\Lead;
+use App\Models\Task;
+use Illuminate\Support\Facades\Mail;
 
 class ExecuteWorkflowJob implements ShouldQueue
 {

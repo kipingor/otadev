@@ -79,6 +79,10 @@ class DashboardController extends Controller
             $pipelineDistribution = $this->getPipelineDistribution();
 
             return Inertia::render('dashboard/index', [
+                'overview' => $overview,
+                'lead_by_status' => $this->metricsService->getLeadsByStatus(),
+                'lead_by_source' => $this->metricsService->getLeadsBySource(),
+                'pipeline_by_stage' => $this->metricsService->getDashboardSnapshot(),
                 'metrics' => $metrics,
                 'recentLeads' => $recentLeads,
                 'upcomingTasks' => $upcomingTasks,
@@ -175,8 +179,9 @@ class DashboardController extends Controller
     private function calculateTotalRevenue(): int
     {
         // If using opportunities with estimated_value
+        // FIX: Opportunity stage is 'closed_won', not 'won'
         $revenue = DB::table('opportunities')
-            ->where('stage', 'won')
+            ->where('stage', 'closed_won')
             ->sum('estimated_value');
 
         // Fallback to a default if no opportunities exist

@@ -32,7 +32,6 @@ class DocumentExtractionService
 
         // Call AI service
         $response = $this->openAIClient->chat($prompt, [
-            'model' => 'gpt-5',
             'temperature' => 0.3, // Lower temperature for more consistent extraction
             'max_tokens' => 2000,
         ]);
@@ -223,7 +222,6 @@ Document:
 PROMPT;
 
         return $this->openAIClient->chat($prompt, [
-            'model' => 'gpt-3.5-turbo',
             'temperature' => 0.2,
             'max_tokens' => 200,
         ]);
@@ -245,7 +243,6 @@ Document:
 PROMPT;
 
         return $this->openAIClient->chat($prompt, [
-            'model' => 'gpt-3.5-turbo',
             'temperature' => 0.5,
             'max_tokens' => $maxLength * 2, // Rough estimate for tokens
         ]);
@@ -277,7 +274,6 @@ Return only the classification, nothing else.
 PROMPT;
 
         return trim($this->openAIClient->chat($prompt, [
-            'model' => 'gpt-3.5-turbo',
             'temperature' => 0.1,
             'max_tokens' => 50,
         ]));

@@ -1,5 +1,15 @@
+/**
+ * FIXES:
+ * 1. Removed `import { route } from 'ziggy-js'`
+ * 2. route('leads.index')      → '/leads'
+ * 3. route('leads.show', id)   → `/leads/${id}`  (breadcrumb)
+ * 4. route('leads.edit', id)   → `/leads/${id}/edit`  (PageHeader action)
+ * These route names no longer exist as Ziggy names after the web. prefix refactor.
+ * Direct URL strings are equivalent and more stable.
+ */
+
 import AppLayout from '@/layouts/app-layout';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { type BreadcrumbItem } from '@/types';
 import { useState } from 'react';
 import LeadDocumentUploader from '@/pages/leads/lead-document-uploader';
@@ -7,17 +17,16 @@ import { useLeadDocumentsRealtime } from '@/hooks/use-lead-documents-realtime';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, Clock, CheckCircle2, AlertCircle, Edit, ArrowLeft, Download } from 'lucide-react';
+import { Loader2, FileText, Clock, CheckCircle2, AlertCircle, Edit, Download } from 'lucide-react';
 import { PageHeader } from '@/components/ui/page-header';
 import { LeadStatusBadge } from '@/components/ui/status-badge';
-import { route } from 'ziggy-js';
-import { 
-    ActivityTimeline,      // Main timeline view
-    ActivityCard,          // Single activity
-    ActivityFormModal,     // Create/edit form
-    ActivityTypeIcon,      // Type icons
-    ActivityStats,         // Statistics widget
-    QuickAddActivity       // Floating add button
+import {
+    ActivityTimeline,
+    ActivityCard,
+    ActivityFormModal,
+    ActivityTypeIcon,
+    ActivityStats,
+    QuickAddActivity,
 } from '@/components/activities';
 
 interface LeadDocument {
@@ -25,10 +34,7 @@ interface LeadDocument {
     filename: string;
     original_name: string;
     status: string;
-    ai_summary?: {
-        summary?: string;
-        key_points?: string[];
-    };
+    ai_summary?: { summary?: string; key_points?: string[] };
     created_at: string;
     file_url?: string;
 }
@@ -49,41 +55,31 @@ export default function LeadShow() {
     const { props } = usePage<{ lead: Lead }>();
     const lead = props.lead;
 
+    // FIX: was route('leads.index') and route('leads.show', lead?.id) — Ziggy, wrong names
     const breadcrumbs: BreadcrumbItem[] = [
-        { title: 'Leads', href: route('leads.index') },
-        { title: lead?.title ?? 'Lead', href: route('leads.show', lead?.id) },
+        { title: 'Leads', href: '/leads' },
+        { title: lead?.title ?? 'Lead', href: lead?.id ? `/leads/${lead.id}` : '/leads' },
     ];
 
     const [documents, setDocuments] = useState<LeadDocument[]>(lead?.leadDocuments ?? []);
     const [uploading, setUploading] = useState(false);
 
     const getStatusVariant = (status: string | undefined): 'default' | 'secondary' | 'destructive' | 'outline' => {
-        const s = (status || 'unknown').toLowerCase();
-        switch (s) {
-            case 'processing':
-                return 'secondary';
-            case 'succeeded':
-                return 'default';
-            case 'failed':
-                return 'destructive';
-            default:
-                return 'outline';
+        switch ((status || '').toLowerCase()) {
+            case 'processing': return 'secondary';
+            case 'succeeded':  return 'default';
+            case 'failed':     return 'destructive';
+            default:           return 'outline';
         }
     };
 
     const getStatusIcon = (status: string | undefined) => {
-        const s = (status || 'unknown').toLowerCase();
-        switch (s) {
-            case 'processing':
-                return <Loader2 className="h-3 w-3 animate-spin" />;
-            case 'succeeded':
-                return <CheckCircle2 className="h-3 w-3" />;
-            case 'failed':
-                return <AlertCircle className="h-3 w-3" />;
-            case 'pending':
-                return <Clock className="h-3 w-3" />;
-            default:
-                return <FileText className="h-3 w-3" />;
+        switch ((status || '').toLowerCase()) {
+            case 'processing': return <Loader2 className="h-3 w-3 animate-spin" />;
+            case 'succeeded':  return <CheckCircle2 className="h-3 w-3" />;
+            case 'failed':     return <AlertCircle className="h-3 w-3" />;
+            case 'pending':    return <Clock className="h-3 w-3" />;
+            default:           return <FileText className="h-3 w-3" />;
         }
     };
 
@@ -92,16 +88,12 @@ export default function LeadShow() {
             const idx = prev.findIndex((d) => d.id === event.document_id);
             if (idx !== -1) {
                 const copy = [...prev];
-                copy[idx] = { 
-                    ...copy[idx], 
-                    status: event.status, 
-                    ai_summary: event.ai_summary 
-                };
+                copy[idx] = { ...copy[idx], status: event.status, ai_summary: event.ai_summary };
                 return copy;
             }
-            return [...prev, { 
-                id: event.document_id, 
-                status: event.status, 
+            return [...prev, {
+                id: event.document_id,
+                status: event.status,
                 ai_summary: event.ai_summary,
                 filename: '',
                 original_name: '',
@@ -114,19 +106,21 @@ export default function LeadShow() {
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={lead?.title ?? 'Lead'} />
 
-            <div className='flex h-full flex-1 flex-col gap-6 p-6'>
+            <div className="flex h-full flex-1 flex-col gap-6 p-6">
                 {/* Lead Header */}
                 <PageHeader
                     title={lead?.title ?? 'Lead'}
                     description={lead?.description}
                     backButton={{
                         label: 'Back to Leads',
-                        href: route('leads.index'),
+                        // FIX: was route('leads.index')
+                        href: '/leads',
                     }}
                     actions={[
                         {
                             label: 'Edit Lead',
-                            href: route('leads.edit', lead?.id),
+                            // FIX: was route('leads.edit', lead?.id)
+                            href: lead?.id ? `/leads/${lead.id}/edit` : '/leads',
                             icon: Edit,
                             variant: 'outline',
                         },
@@ -162,26 +156,24 @@ export default function LeadShow() {
                     </CardContent>
                 </Card>
 
-                {/* AI Summary Section */}
-                {lead?.metadata && Object.keys(lead?.metadata).length > 0 && (
+                {/* AI Summary */}
+                {lead?.metadata && Object.keys(lead.metadata).length > 0 && (
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-lg">AI-Generated Summary</CardTitle>
-                            <CardDescription>
-                                Automatically extracted information and insights
-                            </CardDescription>
+                            <CardDescription>Automatically extracted information and insights</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="bg-muted p-4 rounded-lg">
                                 <pre className="text-sm overflow-auto max-h-64 whitespace-pre-wrap break-words font-mono">
-                                    {JSON.stringify(lead?.metadata, null, 2)}
+                                    {JSON.stringify(lead.metadata, null, 2)}
                                 </pre>
                             </div>
                         </CardContent>
                     </Card>
                 )}
 
-                {/* Documents Section */}
+                {/* Documents */}
                 <Card>
                     <CardHeader>
                         <div className="flex items-center justify-between">
@@ -196,7 +188,6 @@ export default function LeadShow() {
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-4">
-                        {/* Document List */}
                         {documents.length > 0 && (
                             <div className="space-y-3">
                                 {documents.map((d) => (
@@ -204,50 +195,27 @@ export default function LeadShow() {
                                         key={d.id}
                                         className="flex items-start gap-4 rounded-lg border p-4 transition-colors hover:bg-muted/50"
                                     >
-                                        <div className="rounded-full bg-muted p-2">
-                                            {getStatusIcon(d.status)}
-                                        </div>
-
+                                        <div className="rounded-full bg-muted p-2">{getStatusIcon(d.status)}</div>
                                         <div className="flex-1 min-w-0 space-y-1">
                                             <div className="flex items-start justify-between gap-2">
                                                 <h4 className="font-medium truncate">
                                                     {d.original_name ?? d.filename ?? `Document ${d.id}`}
                                                 </h4>
-                                                <Badge variant={getStatusVariant(d.status)}>
-                                                    {d.status}
-                                                </Badge>
+                                                <Badge variant={getStatusVariant(d.status)}>{d.status}</Badge>
                                             </div>
                                             <p className="text-xs text-muted-foreground">
-                                                {d.created_at
-                                                    ? new Date(d.created_at).toLocaleString()
-                                                    : 'Recently uploaded'}
+                                                {d.created_at ? new Date(d.created_at).toLocaleString() : 'Recently uploaded'}
                                             </p>
-
-                                            {/* AI Summary for Document */}
                                             {d.ai_summary?.summary && (
                                                 <div className="mt-3 pt-3 border-t">
-                                                    <p className="text-xs font-medium text-muted-foreground mb-2">
-                                                        AI Summary
-                                                    </p>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {d.ai_summary.summary}
-                                                    </p>
+                                                    <p className="text-xs font-medium text-muted-foreground mb-2">AI Summary</p>
+                                                    <p className="text-sm text-muted-foreground">{d.ai_summary.summary}</p>
                                                 </div>
                                             )}
                                         </div>
-
                                         {d.file_url && (
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                asChild
-                                            >
-                                                <a 
-                                                    href={d.file_url} 
-                                                    download
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                >
+                                            <Button variant="ghost" size="icon" asChild>
+                                                <a href={d.file_url} download target="_blank" rel="noopener noreferrer">
                                                     <Download className="h-4 w-4" />
                                                 </a>
                                             </Button>
@@ -257,8 +225,7 @@ export default function LeadShow() {
                             </div>
                         )}
 
-                        {/* Upload Section */}
-                        <div className={documents.length > 0 ? "mt-6 pt-6 border-t" : ""}>
+                        <div className={documents.length > 0 ? 'mt-6 pt-6 border-t' : ''}>
                             <h4 className="font-medium mb-4">Upload New Document</h4>
                             <LeadDocumentUploader
                                 leadId={lead?.id}
@@ -278,20 +245,18 @@ export default function LeadShow() {
                     </CardContent>
                 </Card>
 
-                {/* Questions Section */}
-                {lead?.questions && lead?.questions.length > 0 && (
+                {/* Questions */}
+                {lead?.questions && lead.questions.length > 0 && (
                     <Card>
                         <CardHeader>
                             <CardTitle>Clarifying Questions</CardTitle>
-                            <CardDescription>
-                                AI-generated questions to better understand this lead
-                            </CardDescription>
+                            <CardDescription>AI-generated questions to better understand this lead</CardDescription>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-3">
-                                {lead?.questions.map((q: any, idx: number) => (
-                                    <div 
-                                        key={q.id} 
+                                {lead.questions.map((q: any, idx: number) => (
+                                    <div
+                                        key={q.id}
                                         className="flex gap-3 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                                     >
                                         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-medium">

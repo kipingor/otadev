@@ -45,7 +45,7 @@ import { useDeleteConfirmation, useConfirmDialog } from '@/components/ui/confirm
 import { formatDistanceToNow } from 'date-fns';
 import { Lead, PaginatedData, Pipeline, User } from '@/types/models.types';
 import { useDebounce } from '@/hooks/use-debounce';
-import { route } from 'ziggy-js';
+import * as l from '@/routes/web/leads';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -99,7 +99,7 @@ export default function LeadsIndex({
       setIsSearching(true);
       setError(null);
       router.get(
-        route('leads.index'),
+        l.index().url,
         {
           ...filters,
           search: debouncedSearch || undefined,
@@ -123,7 +123,7 @@ export default function LeadsIndex({
       setIsLoading(true);
       setError(null);
       router.get(
-        route('leads.index'),
+        l.index().url,
         {
           ...filters,
           [key]: value === 'all' ? undefined : value,
@@ -148,7 +148,7 @@ export default function LeadsIndex({
       setIsLoading(true);
       setError(null);
       router.get(
-        route('leads.index'),
+        l.index().url,
         {
           ...filters,
           per_page: value,
@@ -172,7 +172,7 @@ export default function LeadsIndex({
     setSearch('');
     setIsLoading(true);
     setError(null);
-    router.visit(route('leads.index'), {
+    router.visit(l.index().url, {
       replace: true,
       preserveState: false,
       onFinish: () => setIsLoading(false),

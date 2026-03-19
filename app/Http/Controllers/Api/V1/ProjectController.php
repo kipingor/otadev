@@ -18,15 +18,39 @@ class ProjectController extends Controller
      */
     public function getTasks(Project $project): JsonResponse
     {
-        // $this->authorize('view', $project);
-
         $tasks = $project->tasks()
-            ->with('assignee:id,name,email,avatar', 'milestone:id,title')
+            ->with([
+                'assignee:id,name,email,avatar',
+                'milestone:id,title',
+                'comments.user:id,name,avatar',
+            ])
             ->orderBy('status')
             ->orderBy('priority', 'desc')
             ->get();
 
-            return response()->json($tasks);
+        return response()->json($tasks);
+    }
+
+    /**
+     * Mark a project as complete (or reopen it)
+     */
+    public function completeProject(Request $request, Project $project): JsonResponse
+    {
+        $this->authorize('update', $project);
+
+        $validated = $request->validate([
+            'status' => ['required', Rule::in(['completed', 'active', 'on_hold'])],
+        ]);
+
+        $project->update(['status' => $validated['status']]);
+
+        return response()->json([
+            'success' => true,
+            'message' => $validated['status'] === 'completed'
+                ? 'Project marked as complete.'
+                : 'Project reopened.',
+            'data'    => $project->fresh(),
+        ]);
     }
 
     /**

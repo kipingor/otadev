@@ -7,11 +7,9 @@ use Exception;
 
 class ProposalGeneratorService
 {
-    private OpenAIClient $client;
-
-    public function __construct(OpenAIClient $client)
-    {
-        $this->client = $client;
+    public function __construct(
+        private OpenAIClientInterface $client
+    ) {
     }
 
     /**

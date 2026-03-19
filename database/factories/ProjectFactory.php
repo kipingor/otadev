@@ -7,39 +7,67 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Project>
+ * FIX: Previously used random status including 'completed' regardless of task state.
+ * Progress/completion is now driven by task status in the seeder — the factory
+ * itself creates only 'planning' or 'active' projects by default.
+ * Use the 'completed' and 'cancelled' states explicitly when needed.
  */
 class ProjectFactory extends Factory
 {
     protected $model = Project::class;
 
-    /**
-     * Define the model's default state.
-     *
-     * @return array<string, mixed>
-     */
     public function definition(): array
     {
-        $status = $this->faker->randomElement(['planning', 'active', 'on_hold', 'completed', 'cancelled']);
-
-        $clientId = User::inRandomOrder()->first()?->id ?? User::factory()->create()->id;
-        $ownerId = User::inRandomOrder()->first()?->id ?? User::factory()->create()->id;
+        // Default to active work states — 'completed' only via state method
+        $status    = $this->faker->randomElement(['planning', 'active', 'active', 'active']);
+        $startDate = $this->faker->dateTimeBetween('-6 months', 'now');
+        $endDate   = $this->faker->dateTimeBetween($startDate, '+6 months');
 
         return [
-            'opportunity_id' => null, // Opportunity relation is nullable, left as null by default
-            'name' => $this->faker->sentence(3),
-            'description' => $this->faker->optional()->paragraph,
-            'client_id' => $clientId,
-            'owner_id' => $ownerId,
-            'status' => $status,
-            'start_date' => $this->faker->optional()->dateTimeBetween('-1 month', '+1 week'),
-            'end_date' => $this->faker->optional()->dateTimeBetween('+1 week', '+6 months'),
-            'budget' => $this->faker->optional()->randomFloat(2, 1000, 200000),
-            'currency' => 'USD',
-            'metadata' => [
-                'note' => $this->faker->optional()->sentence(),
-                'phase' => $this->faker->optional()->randomElement(['requirements', 'design', 'development', 'testing', 'deployment']),
-            ],
+            'opportunity_id' => null,
+            'name'           => $this->faker->sentence(3),
+            'description'    => $this->faker->optional()->paragraph(),
+            'objectives'     => $this->faker->optional()->sentence(),
+            'client_id'      => User::inRandomOrder()->first()?->id ?? User::factory()->create()->id,
+            'owner_id'       => User::inRandomOrder()->first()?->id ?? User::factory()->create()->id,
+            'status'         => $status,
+            'phase'          => $this->faker->randomElement(['planning', 'executing', 'monitoring_controlling']),
+            'start_date'     => $startDate,
+            'end_date'       => $endDate,
+            'budget'         => $this->faker->optional(0.8)->randomFloat(2, 5000, 200000),
+            'currency'       => 'USD',
+            'metadata'       => null,
         ];
+    }
+
+    /**
+     * Project where ALL tasks are done → status = 'completed', phase = 'closing'.
+     * Use this state in the seeder when you want a genuinely completed project.
+     */
+    public function completed(): static
+    {
+        return $this->state([
+            'status'       => 'completed',
+            'phase'        => 'closing',
+            'completed_at' => $this->faker->dateTimeBetween('-3 months', 'now'),
+        ]);
+    }
+
+    /** On hold — no tasks should be in progress. */
+    public function onHold(): static
+    {
+        return $this->state(['status' => 'on_hold', 'phase' => 'monitoring_controlling']);
+    }
+
+    /** Cancelled — tasks not relevant. */
+    public function cancelled(): static
+    {
+        return $this->state(['status' => 'cancelled', 'phase' => 'closing']);
+    }
+
+    /** Just starting — no tasks done yet. */
+    public function planning(): static
+    {
+        return $this->state(['status' => 'planning', 'phase' => 'initiating']);
     }
 }

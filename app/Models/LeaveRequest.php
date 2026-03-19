@@ -4,11 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LeaveRequest extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory;
+
+    /** Points to the table that actually exists. */
+    protected $table = 'hr_leave_requests';
 
     public const STATUSES = [
         'pending',
@@ -17,48 +20,57 @@ class LeaveRequest extends Model
         'cancelled',
     ];
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
-        'user_id',
-        'start_date',
-        'end_date',
+        'staff_profile_id',
+        'from_date',
+        'to_date',
+        'type',
         'reason',
         'status',
         'approved_by',
-        'notes',
+        'admin_notes',
     ];
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
     protected $casts = [
-        'start_date' => 'date',
-        'end_date' => 'date',
+        'from_date' => 'date',
+        'to_date'   => 'date',
     ];
 
+    // ── Relations ─────────────────────────────────────────────────────────────
+
     /**
-     * Get the user who requested the leave.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * The staff member who raised this request.
+     * BUG FIX: relation was missing — HRController::leave() called
+     * LeaveRequest::with('staffProfile') which threw an error.
      */
-    public function user()
+    public function staffProfile(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(StaffProfile::class);
     }
 
     /**
-     * Get the user who approved the leave.
-     *
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     * The user who approved/rejected this request.
      */
-    public function approver()
+    public function approver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    // ── Scopes ────────────────────────────────────────────────────────────────
+
+    public function scopePending($query)
+    {
+        return $query->where('status', 'pending');
+    }
+
+    public function scopeApproved($query)
+    {
+        return $query->where('status', 'approved');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'approved')
+                     ->where('to_date', '>=', now());
     }
 }

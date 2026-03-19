@@ -3,7 +3,7 @@ import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { PageHeader } from '@/components/ui/page-header';
-import { Edit, Trash2, ExternalLink } from 'lucide-react';
+import { Edit, Trash2, ExternalLink, UserPlus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { OpportunityStatusBadge } from '@/components/ui/status-badge';
 import { useDeleteConfirmation } from '@/components/ui/confirm-dialog';
@@ -18,6 +18,7 @@ interface Opportunity {
     currency?: string;
     expected_close_date: string;
     created_at: string;
+    client_id?: number | null;
     owner?: {
         id: number;
         name: string;
@@ -92,6 +93,14 @@ export default function OpportunityShow({
                         href: route('web.opportunities.index'),
                     }}
                     actions={[
+                        {
+                            label: opportunity?.client_id ? 'View Client' : 'Convert to Client',
+                            href: opportunity?.client_id
+                                ? `/clients/${opportunity.client_id}`
+                                : `/opportunities/${opportunity?.id}/convert-to-client`,
+                            icon: UserPlus,
+                            variant: 'outline',
+                        },
                         {
                             label: 'Edit',
                             href: route('web.opportunities.edit', opportunity?.id),

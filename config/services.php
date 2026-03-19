@@ -45,11 +45,33 @@ return [
     |
     */
     'openai' => [
-        'api_key' => env('OPENAI_API_KEY'),
-        'organization' => env('OPENAI_ORGANIZATION'),
+        'api_key'       => env('OPENAI_API_KEY'),
+        'organization'  => env('OPENAI_ORGANIZATION'),
         'default_model' => env('OPENAI_DEFAULT_MODEL', 'gpt-5'),
-        'timeout' => env('OPENAI_TIMEOUT', 60),
+        'timeout'       => env('OPENAI_TIMEOUT', 60),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Anthropic / Claude Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Set ANTHROPIC_API_KEY in .env to switch the AI agent to Claude.
+    | When present this takes priority over OPENAI_API_KEY.
+    |
+    */
+    'anthropic' => [
+        'api_key'       => env('ANTHROPIC_API_KEY'),
+        'default_model' => env('ANTHROPIC_DEFAULT_MODEL', 'claude-sonnet-4-20250514'),
+        'timeout'       => env('ANTHROPIC_TIMEOUT', 60),
+    ],
+
+    'mailgun' => [
+        'domain'              => env('MAILGUN_DOMAIN'),
+        'secret'              => env('MAILGUN_SECRET'),
+        'endpoint'            => env('MAILGUN_ENDPOINT', 'api.mailgun.net'),
+        'scheme'              => 'https',
+        'webhook_signing_key' => env('MAILGUN_WEBHOOK_SIGNING_KEY'),
+    ],
 
 ];

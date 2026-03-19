@@ -7,6 +7,7 @@ use App\Models\Lead;
 use App\Models\PipelineStage;
 use App\Models\Task;
 use App\Models\Project;
+use App\Models\ProjectTeamMember;
 use App\Models\Opportunity;
 use App\Models\Milestone;
 use App\Models\TimeLog;
@@ -14,11 +15,9 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Expense;
 use App\Models\Supplier;
-use App\Models\Vendor;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
@@ -27,186 +26,191 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // ---------------------------
-        // 1. Create Admin User
-        // ---------------------------
-        $user = User::firstOrCreate(
+        // ── 1. Admin user ──────────────────────────────────────────────────────
+        $adminUser = User::firstOrCreate(
             ['email' => 'kipingor@gmail.com'],
             [
-                'name' => 'Antony Kipingor',
-                'password' => Hash::make('deadenman80'),
-                'email_verified_at' => now(),
+                'name'               => 'Antony Kipingor',
+                'password'           => Hash::make('deadenman80'),
+                'email_verified_at'  => now(),
             ]
         );
 
-        // Create base permissions
+        // ── Permissions & roles ────────────────────────────────────────────────
         $permissions = [
-            'view leads',
-            'create leads',
-            'edit leads',
-            'delete leads',
-            'move leads',
-            'view opportunities',
-            'create opportunities',
-            'edit opportunities',
-            'delete opportunities',
-            'view projects',
-            'create projects',
-            'edit projects',
-            'delete projects',
-            'view pipelines',
-            'create pipelines',
-            'edit pipelines',
-            'delete pipelines',
-            'manage users',
-            'view reports',
+            'view leads',    'create leads',    'edit leads',    'delete leads',    'move leads',
+            'view opportunities', 'create opportunities', 'edit opportunities', 'delete opportunities',
+            'view projects', 'create projects', 'edit projects', 'delete projects',
+            'view pipelines','create pipelines','edit pipelines','delete pipelines',
+            'manage users',  'view reports',
         ];
-
-        foreach ($permissions as $permission) {
-            Permission::firstOrCreate(['name' => $permission]);
+        foreach ($permissions as $perm) {
+            Permission::firstOrCreate(['name' => $perm]);
         }
-
-        // Roles
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
         $adminRole->syncPermissions(Permission::all());
-        $user->assignRole($adminRole);
+        $adminUser->assignRole($adminRole);
 
-        // ---------------------------
-        // 2. Create Supporting Users
-        // ---------------------------
+        // ── 2. Supporting users ────────────────────────────────────────────────
         $users = User::factory(10)->create();
+        $allUsers = $users->push($adminUser); // include admin in pool
 
-        // ---------------------------
-        // 3. Create Pipeline Stages
-        // ---------------------------
+        // ── 3. Pipeline stages ─────────────────────────────────────────────────
         $defaultStages = [
-            ['key' => 'intake', 'name' => 'Intake', 'order' => 0, 'color' => '#3b82f6'],
-            ['key' => 'discovery', 'name' => 'Discovery', 'order' => 1, 'color' => '#06b6d4'],
-            ['key' => 'proposal', 'name' => 'Proposal', 'order' => 2, 'color' => '#8b5cf6'],
+            ['key' => 'intake',      'name' => 'Intake',      'order' => 0, 'color' => '#3b82f6'],
+            ['key' => 'discovery',   'name' => 'Discovery',   'order' => 1, 'color' => '#06b6d4'],
+            ['key' => 'proposal',    'name' => 'Proposal',    'order' => 2, 'color' => '#8b5cf6'],
             ['key' => 'negotiation', 'name' => 'Negotiation', 'order' => 3, 'color' => '#f59e0b'],
-            ['key' => 'closed_won', 'name' => 'Closed Won', 'order' => 4, 'color' => '#059669'],
+            ['key' => 'closed_won',  'name' => 'Closed Won',  'order' => 4, 'color' => '#059669'],
             ['key' => 'closed_lost', 'name' => 'Closed Lost', 'order' => 5, 'color' => '#ef4444'],
         ];
-        $pipelineStages = collect($defaultStages)->map(function ($stage) {
-            return PipelineStage::firstOrCreate(
-                ['key' => $stage['key']],
-                [
-                    'name' => $stage['name'],
-                    'order' => $stage['order'],
-                    'color' => $stage['color'],
-                ]
-            );
-        });
+        $pipelineStages = collect($defaultStages)->map(fn ($s) =>
+            PipelineStage::firstOrCreate(['key' => $s['key']], $s)
+        );
 
-        // ---------------------------
-        // DATE RANGE: Jan 1 → Today
-        // ---------------------------
-        $start = Carbon::create(now()->year, 1, 1);
-        $end = now();
+        // ── Helpers ────────────────────────────────────────────────────────────
+        $yearStart  = Carbon::create(now()->year, 1, 1);
+        $now        = now();
+        $randomDate = fn () => Carbon::parse(fake()->dateTimeBetween($yearStart, $now));
 
-        // random date helper
-        $randomDate = fn() => Carbon::parse(fake()->dateTimeBetween($start, $end));
-
-        // ---------------------------
-        // 4. Leads + Opportunities
-        // ---------------------------
-        $leads = Lead::factory(20)->make()->each(function ($lead) use ($users, $pipelineStages, $randomDate) {
-            $lead->created_by = $users->random()->id;
-            $lead->owner_id = $users->random()->id;
+        // ── 4. Leads → Opportunities ───────────────────────────────────────────
+        Lead::factory(20)->make()->each(function ($lead) use ($allUsers, $pipelineStages, $randomDate) {
+            $lead->created_by        = $allUsers->random()->id;
+            $lead->owner_id          = $allUsers->random()->id;
             $lead->pipeline_stage_id = $pipelineStages->random()->id;
-            $lead->created_at = $randomDate();
-            $lead->updated_at = $lead->created_at;
+            $lead->created_at        = $randomDate();
+            $lead->updated_at        = $lead->created_at;
             $lead->save();
 
-            // 30% chance to convert to opportunity
-            if (rand(1, 100) <= 30) {
+            // 40 % become opportunities
+            if (rand(1, 100) <= 40) {
                 Opportunity::factory()->create([
-                    'lead_id' => $lead->id,
-                    'owner_id' => $lead->owner_id,
+                    'lead_id'    => $lead->id,
+                    'owner_id'   => $lead->owner_id,
                     'created_at' => $randomDate(),
                 ]);
             }
         });
 
-        // ---------------------------
-        // 5. Projects (only for opportunities)
-        // ---------------------------
-        Opportunity::all()->each(function ($opportunity) use ($randomDate) {
+        // ── 5. Projects ────────────────────────────────────────────────────────
+        Opportunity::all()->each(function (Opportunity $opp) use ($randomDate, $allUsers) {
 
-            $project = Project::factory()->create([
-                'opportunity_id' => $opportunity->id,
-                'client_id' => $opportunity->lead->owner_id,
-                'owner_id' => $opportunity->owner_id,
-                'created_at' => $randomDate(),
+            // Decide project lifecycle state FIRST so tasks are seeded consistently:
+            //   20 % completed  → all tasks done
+            //   10 % on_hold    → tasks mostly todo / in_progress, none done
+            //   10 % cancelled  → no tasks created
+            //   60 % active     → mixed in_progress / review / todo tasks
+            $roll      = rand(1, 100);
+            $lifecycle = match (true) {
+                $roll <= 20  => 'completed',
+                $roll <= 30  => 'on_hold',
+                $roll <= 40  => 'cancelled',
+                default      => 'active',
+            };
+
+            // Create project with matching factory state
+            $projectFactory = match ($lifecycle) {
+                'completed' => Project::factory()->completed(),
+                'on_hold'   => Project::factory()->onHold(),
+                'cancelled' => Project::factory()->cancelled(),
+                default     => Project::factory(),
+            };
+
+            $project = $projectFactory->create([
+                'opportunity_id' => $opp->id,
+                'client_id'      => $opp->lead?->owner_id ?? $allUsers->random()->id,
+                'owner_id'       => $opp->owner_id,
+                'created_at'     => $randomDate(),
             ]);
 
-            // ---------------------------
-            // Milestones
-            // ---------------------------
-            $milestones = Milestone::factory(rand(3, 6))->create([
+            // ── No tasks for cancelled projects ───────────────────────────────
+            if ($lifecycle === 'cancelled') {
+                return;
+            }
+
+            // ── Milestones ────────────────────────────────────────────────────
+            $milestoneCount = rand(2, 5);
+            $milestones = Milestone::factory($milestoneCount)->create([
                 'project_id' => $project->id,
                 'created_at' => $randomDate(),
+                // FIX: milestone table uses 'due_date', not 'scheduled_date'
+                'status'     => $lifecycle === 'completed' ? 'achieved' : 'pending',
             ]);
 
-            // ---------------------------
-            // Tasks
-            // ---------------------------
-            $tasks = Task::factory(rand(8, 15))->create([
-                'project_id' => $project->id,
-                'created_at' => $randomDate(),
-            ]);
+            // ── Tasks — status must match project lifecycle ───────────────────
+            $taskCount = rand(6, 14);
 
-            // attach tasks to milestones, add time logs
+            $tasks = Task::factory($taskCount)
+                ->when($lifecycle === 'completed', fn ($f) => $f->done())
+                ->when($lifecycle === 'on_hold',   fn ($f) => $f->pending())
+                ->when($lifecycle === 'active',    fn ($f) => $f->inProgress())
+                ->create([
+                    'project_id' => $project->id,
+                    'created_at' => $randomDate(),
+                ]);
+
+            // FIX: For completed projects, ensure ALL tasks have status='done'
+            // (the factory state sets done() but we double-check here)
+            if ($lifecycle === 'completed') {
+                $tasks->each(fn ($t) => $t->status !== 'done' && $t->update(['status' => 'done', 'completed_at' => $randomDate()]));
+            }
+
+            // Assign WBS codes to top-level tasks (1.0, 2.0, …) for clarity
+            $tasks->values()->each(function ($task, $index) {
+                $task->update(['wbs_code' => ($index + 1) . '.0', 'sort_order' => $index]);
+            });
+
+            // Assign tasks to milestones + create time logs
             $tasks->each(function ($task) use ($milestones, $randomDate) {
-
-                if (rand(0, 1) === 1) {
-                    $task->update([
-                        'milestone_id' => $milestones->random()->id
-                    ]);
+                if (rand(0, 1)) {
+                    $task->update(['milestone_id' => $milestones->random()->id]);
                 }
-
-                // Time Logs
-                TimeLog::factory(rand(1, 5))->create([
-                    'task_id' => $task->id,
+                TimeLog::factory(rand(1, 4))->create([
+                    'task_id'   => $task->id,
                     'logged_at' => $randomDate(),
                 ]);
             });
 
-            // ---------------------------
-            // 6. Finance — Invoices & Payments
-            // ---------------------------
-            $invoices = Invoice::factory(rand(1, 3))->make([
+            // ── Team members ──────────────────────────────────────────────────
+            $teamSize      = rand(2, 5);
+            $assignedUserIds = collect([$project->owner_id]);
+
+            $allUsers->shuffle()->take($teamSize + 2)->each(function ($u) use ($project, &$assignedUserIds, $teamSize) {
+                if ($assignedUserIds->count() > $teamSize) return;
+                if ($assignedUserIds->contains($u->id)) return;
+                ProjectTeamMember::create([
+                    'project_id'            => $project->id,
+                    'user_id'               => $u->id,
+                    'role'                  => fake()->randomElement(['developer', 'designer', 'analyst', 'tester', 'manager']),
+                    'allocation_percentage' => fake()->randomElement([25, 50, 75, 100]),
+                    'joined_at'             => now()->subDays(rand(10, 90)),
+                ]);
+                $assignedUserIds->push($u->id);
+            });
+
+            // ── Invoices & Payments ───────────────────────────────────────────
+            $invoiceCount = $lifecycle === 'completed' ? rand(2, 4) : rand(1, 2);
+            $invoices = Invoice::factory($invoiceCount)->make([
                 'project_id' => $project->id,
-                'client_id' => $project->client_id,
+                'client_id'  => $project->client_id,
                 'created_at' => $randomDate(),
-                // Don't set 'amount' (not in schema/factory)
-                // Let factory handle due_date, but allow override with plausible date
-                'due_date' => $randomDate()->addDays(rand(7, 30)),
+                'due_date'   => $randomDate()->addDays(rand(7, 45)),
             ])->each(function ($invoice) {
-                // Convert lines to JSON explicitly before saving
-                if (is_array($invoice->lines)) {
-                    $invoice->lines = json_encode($invoice->lines);
-                }
                 $invoice->save();
             });
 
-            // Each invoice has 0–2 payments
-            $invoices->each(function ($invoice) use ($randomDate, $project) {
-                Payment::factory(rand(0, 2))->create([
+            // For completed projects most invoices should be paid
+            $invoices->each(function ($invoice) use ($randomDate, $project, $lifecycle) {
+                $paymentCount = $lifecycle === 'completed' ? rand(1, 2) : rand(0, 1);
+                Payment::factory($paymentCount)->create([
                     'invoice_id' => $invoice->id,
-                    'project_id' => $project->id,
-                    'paid_at' => $randomDate(),
+                    'paid_at'    => $randomDate(),
                 ]);
             });
 
-            // ---------------------------
-            // 7. Expenses
-            // ---------------------------
-            // The error occurs because the 'lines' attribute in ExpenseFactory can be an array,
-            // but the expenses table expects JSON (not PHP array). 
-            // Solution: Convert array values for 'lines' to JSON before insert.
-            Expense::factory(rand(2, 5))->make([
-                'project_id' => $project->id,
+            // ── Expenses ──────────────────────────────────────────────────────
+            Expense::factory(rand(2, 6))->make([
+                'project_id'  => $project->id,
                 'incurred_at' => $randomDate(),
             ])->each(function ($expense) {
                 if (is_array($expense->lines)) {
@@ -216,33 +220,14 @@ class DatabaseSeeder extends Seeder
             });
         });
 
-        // ---------------------------
-        // 8. Suppliers & Vendors
-        // ---------------------------
-
-        // -- To fix: convert array fields to JSON before save --
-        $suppliers = Supplier::factory(8)->make([
-            'created_at' => $randomDate(),
-        ])->each(function ($supplier) {
-            // The following fields must be JSON strings for insert:
-            foreach (['contact_info', 'products', 'metadata'] as $jsonField) {
-                if (isset($supplier->$jsonField) && is_array($supplier->$jsonField)) {
-                    $supplier->$jsonField = json_encode($supplier->$jsonField);
+        // ── 6. Standalone suppliers ────────────────────────────────────────────
+        Supplier::factory(8)->make()->each(function ($supplier) {
+            foreach (['contact_info', 'products', 'metadata'] as $field) {
+                if (isset($supplier->$field) && is_array($supplier->$field)) {
+                    $supplier->$field = json_encode($supplier->$field);
                 }
             }
             $supplier->save();
-        });
-
-        $vendors = Vendor::factory(5)->make([
-            'created_at' => $randomDate(),
-        ])->each(function ($vendor) {
-            // The following fields must be JSON strings for insert:
-            foreach (['contact_info', 'metadata'] as $jsonField) {
-                if (isset($vendor->$jsonField) && is_array($vendor->$jsonField)) {
-                    $vendor->$jsonField = json_encode($vendor->$jsonField);
-                }
-            }
-            $vendor->save();
         });
     }
 }

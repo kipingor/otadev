@@ -250,14 +250,30 @@ Route::prefix('v1')->name('api.')->group(function () {
         // Individual task operations
         Route::prefix('tasks/{task}')->group(function () {
             Route::put('/', [ProjectController::class, 'updateTask'])
-                ->name('tasks.update');
+                ->name('projects.tasks.update');
 
             Route::post('move', [ProjectController::class, 'moveTask'])
                 ->name('tasks.move');
 
             Route::delete('/', [ProjectController::class, 'deleteTask'])
                 ->name('tasks.destroy');
+
+            // Task comments/notes/mitigations
+            Route::get('comments', [TaskController::class, 'comments'])
+                ->name('tasks.comments.index');
+            Route::post('comments', [TaskController::class, 'addComment'])
+                ->name('tasks.comments.store');
+            Route::delete('comments/{comment}', [TaskController::class, 'deleteComment'])
+                ->name('tasks.comments.destroy');
         });
+
+        // Project complete / reopen
+        Route::post('projects/{project}/complete', [ProjectController::class, 'completeProject'])
+            ->name('projects.complete');
+
+        // Client report metrics (AJAX — used by report create form)
+        Route::get('client-report-metrics', [\App\Http\Controllers\Web\ClientReportController::class, 'metrics'])
+            ->name('client-report-metrics');
         
         // ========================================================================
         // PROPOSALS
