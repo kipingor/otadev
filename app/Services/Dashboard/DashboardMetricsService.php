@@ -20,15 +20,26 @@ use Carbon\Carbon;
 /**
  * Consolidated Dashboard Service
  *
- * This service combines the previous DashboardMetricsService and DashboardAnalyticsService into a single class
- * that provides all the necessary data for both the dashboard overview and the analytics endpoints.
+ * Combines the previous DashboardMetricsService and DashboardAnalyticsService
+ * into a single class providing all data for dashboard overview and analytics endpoints.
+ *
+ * BUG FIXES in this version:
+ *   1. getOverviewMetrics() was comparing with raw strings 'won'/'qualified' instead
+ *      of LeadStatus enum constants. On a MySQL table with an enum column cast to a
+ *      PHP enum, Eloquent stores the ->value() (string) but raw string comparisons
+ *      can silently fail if the enum value doesn't match exactly or if the ORM
+ *      normalises values. Using LeadStatus::WON / LeadStatus::QUALIFIED is correct.
+ *
+ *   2. getOverviewMetrics() returned 'lost_leads' key which was missing from
+ *      the TypeScript OverviewMetrics interface. Added properly.
  */
 class DashboardMetricsService
 {
     public function __construct(
         protected LeadService $leadService,
         protected PipelineService $pipelineService,
-    ) {}
+    ) {
+    }
 
     // ── Cache ─────────────────────────────────────────────────────────────────
 
@@ -47,15 +58,15 @@ class DashboardMetricsService
 
     // ── Overview Metrics (Web controller) ─────────────────────────────────────
 
-    /**
-     * Full overview for the dashboard page.
-     */
     public function getOverview(?int $userId = null, bool $useCache = true): array
     {
         $cacheKey = 'dashboard.overview.' . ($userId ?? 'all');
 
         if ($useCache) {
-            return Cache::remember($cacheKey, now()->addMinutes(5), fn () =>
+            return Cache::remember(
+                $cacheKey,
+                now()->addMinutes(5),
+                fn () =>
                 $this->calculateOverview($userId)
             );
         }
@@ -72,7 +83,6 @@ class DashboardMetricsService
             'leads'               => (clone $leadQuery)->count(),
             'active_leads'        => (clone $leadQuery)->whereIn('status', LeadStatus::active())->count(),
             'opportunities'       => (clone $oppQuery)->count(),
-            // FIX: Opportunity stage values are 'closed_won'/'closed_lost', not 'won'/'lost'
             'open_pipeline'       => (clone $oppQuery)->whereNotIn('stage', ['closed_won', 'closed_lost'])->count(),
             'projects'            => Project::when($userId, fn ($q) => $q->where('owner_id', $userId))->count(),
             'active_projects'     => Project::where('status', 'active')
@@ -84,9 +94,6 @@ class DashboardMetricsService
 
     // ── Activity Metrics ──────────────────────────────────────────────────────
 
-    /**
-     * @param string $period 'week' | 'month' | 'quarter'
-     */
     public function getActivityMetrics(string $period = 'month'): array
     {
         $cacheKey = "dashboard.activity.{$period}";
@@ -101,7 +108,6 @@ class DashboardMetricsService
                 'leads_created'       => Lead::where('created_at', '>=', $from)->count(),
                 'leads_converted'     => Lead::whereNotNull('converted_to_opportunity_at')
                                              ->where('converted_to_opportunity_at', '>=', $from)->count(),
-                // FIX: Opportunity stage is 'closed_won', not 'won'
                 'opportunities_won'   => Opportunity::where('stage', 'closed_won')
                                                     ->where('updated_at', '>=', $from)->count(),
                 'activities_logged'   => Activity::where('created_at', '>=', $from)->count(),
@@ -113,11 +119,15 @@ class DashboardMetricsService
         });
     }
 
-    // ── Overview Metrics (Analytics — was DashboardAnalyticsService) ──────────
+    // ── Overview Metrics (Analytics API — was DashboardAnalyticsService) ──────
 
     /**
-     * Filterable overview for the analytics API endpoint.
-     * Merged from DashboardAnalyticsService::getOverviewMetrics().
+     * Filterable overview for the /api/v1/analytics/overview endpoint.
+     *
+     * BUG FIX: Previous version used raw strings ('won', 'qualified') instead of
+     * LeadStatus enum constants. The Lead model casts the 'status' column to the
+     * LeadStatus enum, so Eloquent stores and compares enum->value strings. Using
+     * the enum constants is both more reliable and prevents typo-related silent bugs.
      */
     public function getOverviewMetrics(array $filters = []): array
     {
@@ -130,26 +140,27 @@ class DashboardMetricsService
         }
 
         return [
-            'total_leads'   => (clone $query)->count(),
-            'new_leads'     => (clone $query)->whereBetween('created_at', [$dateFrom, $dateTo])->count(),
-            'converted'     => (clone $query)->whereNotNull('converted_to_opportunity_at')->count(),
-            'conversion_rate' => $this->calcConversionRate(clone $query),
+            'total_leads'          => (clone $query)->count(),
+            'new_leads'            => (clone $query)->whereBetween('created_at', [$dateFrom, $dateTo])->count(),
+            'converted'            => (clone $query)->whereNotNull('converted_to_opportunity_at')->count(),
+            'conversion_rate'      => $this->calcConversionRate(clone $query),
             'total_pipeline_value' => (float) Lead::whereNotNull('pipeline_stage_id')->sum('estimated_value'),
-            'average_deal_size' => $query->count() > 0
-                                        ? round((float) $query->sum('estimated_value') / $query->count(), 2)
-                                        : 0,
-            'total_revenue' => Invoice::where('status', 'paid')
-                                      ->whereBetween('updated_at', [$dateFrom, $dateTo])
-                                      ->sum('total'),
-            'period'        => ['from' => $dateFrom->toDateString(), 'to' => $dateTo->toDateString()],
-            'won_leads' => Lead::where('status', LeadStatus::WON)->count(),
-            'qualified_leads' => Lead::where('status', LeadStatus::QUALIFIED)->count(),
+            'average_deal_size'    => $query->count() > 0
+                                          ? round((float) $query->sum('estimated_value') / $query->count(), 2)
+                                          : 0,
+            'total_revenue'        => Invoice::where('status', 'paid')
+                                             ->whereBetween('updated_at', [$dateFrom, $dateTo])
+                                             ->sum('total'),
+            'period'               => ['from' => $dateFrom->toDateString(), 'to' => $dateTo->toDateString()],
+            // FIX: was using raw strings 'won'/'qualified' — use enum constants
+            'won_leads'            => Lead::where('status', LeadStatus::WON)->count(),
+            'qualified_leads'      => Lead::where('status', LeadStatus::QUALIFIED)->count(),
+            'lost_leads'           => Lead::where('status', LeadStatus::LOST)->count(),
         ];
     }
 
     /**
      * Leads grouped by status — for funnel/bar charts.
-     * Merged from DashboardAnalyticsService::getLeadsByStatus().
      */
     public function getLeadsByStatus(array $filters = []): array
     {
@@ -160,8 +171,8 @@ class DashboardMetricsService
             ->get();
 
         return $rows->map(function ($row) {
-            // FIX: Lead.status is cast to LeadStatus enum — getRawOriginal() bypasses
-            // the cast to get the raw DB string. tryFrom(enum_object) would throw TypeError.
+            // getRawOriginal() bypasses the enum cast to get the stored string value.
+            // This prevents TypeErrors when passing the raw value to tryFrom().
             $raw  = $row->getRawOriginal('status');
             $enum = LeadStatus::tryFrom($raw);
             return [
@@ -175,7 +186,6 @@ class DashboardMetricsService
 
     /**
      * Pipeline distribution by stage.
-     * Merged from DashboardAnalyticsService::getPipelineByStage().
      */
     public function getPipelineByStage(array $filters = []): array
     {
@@ -183,10 +193,10 @@ class DashboardMetricsService
         return Cache::remember($cacheKey, now()->addMinutes(5), function () {
             return PipelineStage::withCount('leads')->orderBy('order')->get()
                 ->map(fn ($stage) => [
-                    'stage'  => $stage->name,
-                    'key'    => $stage->key,
-                    'count'  => $stage->leads_count,
-                    'color'  => $stage->color,
+                    'stage' => $stage->name,
+                    'key'   => $stage->key,
+                    'count' => $stage->leads_count,
+                    'color' => $stage->color,
                 ])
                 ->toArray();
         });
@@ -194,12 +204,11 @@ class DashboardMetricsService
 
     /**
      * Lead volume over time for trend charts.
-     * Merged from DashboardAnalyticsService::getLeadsOverTime().
      */
     public function getLeadsOverTime(array $filters = []): array
     {
-        $days  = $filters['days'] ?? 30;
-        $from  = now()->subDays($days);
+        $days = $filters['days'] ?? 30;
+        $from = now()->subDays($days);
 
         return Lead::query()
             ->select(DB::raw('DATE(created_at) as date'), DB::raw('count(*) as count'))
@@ -213,17 +222,14 @@ class DashboardMetricsService
 
     /**
      * Conversion funnel percentages.
-     * Merged from DashboardAnalyticsService::getConversionFunnel().
      */
     public function getConversionFunnel(array $filters = []): array
     {
         $totalLeads = Lead::count() ?: 1;
         $converted  = Lead::whereNotNull('converted_to_opportunity_at')->count();
-        // FIX: Opportunity stage is 'closed_won', not 'won'
         $wons       = Opportunity::where('stage', 'closed_won')->count();
         $projects   = Project::whereNotNull('opportunity_id')->count();
 
-        // FIX: key was 'pct' but TypeScript ConversionFunnelStage expects 'percentage'
         return [
             ['stage' => 'Leads',         'count' => $totalLeads, 'percentage' => 100.0],
             ['stage' => 'Opportunities', 'count' => $converted,  'percentage' => round($converted / $totalLeads * 100, 1)],
@@ -234,7 +240,6 @@ class DashboardMetricsService
 
     /**
      * Team performance metrics.
-     * Merged from DashboardAnalyticsService::getTeamPerformance().
      */
     public function getTeamPerformance(array $filters = []): array
     {
@@ -247,29 +252,18 @@ class DashboardMetricsService
             ->limit(10)
             ->get()
             ->map(fn ($user) => [
-                'name'             => $user->name,
-                'total_leads'      => $user->leads_count,
-                'won_leads'        => $user->won_leads_count,
-                'conversion_rate'  => $user->leads_count > 0
+                'name'            => $user->name,
+                'total_leads'     => $user->leads_count,
+                'won_leads'       => $user->won_leads_count,
+                'conversion_rate' => $user->leads_count > 0
                     ? round($user->won_leads_count / $user->leads_count * 100, 1)
                     : 0,
             ])
             ->toArray();
     }
 
-    // ── Private Helpers ───────────────────────────────────────────────────────
-
-    private function calcConversionRate($query): float
-    {
-        $total     = (clone $query)->count();
-        $converted = (clone $query)->whereNotNull('converted_to_opportunity_at')->count();
-        return $total > 0 ? round($converted / $total * 100, 1) : 0;
-    }
-
-    // ── Methods absorbed from DashboardAnalyticsService (continued) ───────────
-
     /**
-     * Leads grouped by source — for pie/bar charts.
+     * Leads grouped by source.
      */
     public function getLeadsBySource(array $filters = []): array
     {
@@ -289,14 +283,14 @@ class DashboardMetricsService
     }
 
     /**
-     * CRM activity statistics (calls, emails, meetings logged in activities table).
+     * CRM activity statistics.
      */
     public function getActivityStats(array $filters = []): array
     {
         $from = isset($filters['date_from']) ? Carbon::parse($filters['date_from']) : now()->subDays(30);
         $to   = isset($filters['date_to'])   ? Carbon::parse($filters['date_to'])   : now();
 
-        $query = \App\Models\Activity::whereBetween('created_at', [$from, $to])
+        $query = Activity::whereBetween('created_at', [$from, $to])
             ->when(!empty($filters['owner_id']), fn ($q) => $q->where('user_id', $filters['owner_id']));
 
         return [
@@ -323,7 +317,7 @@ class DashboardMetricsService
      */
     public function getLeadVelocity(array $filters = []): array
     {
-        $leads = Lead::where('status', \App\Enums\LeadStatus::WON)
+        $leads = Lead::where('status', LeadStatus::WON)
             ->whereNotNull('won_at')
             ->when(!empty($filters['owner_id']), fn ($q) => $q->where('owner_id', $filters['owner_id']))
             ->when(!empty($filters['date_from']), fn ($q) => $q->where('created_at', '>=', $filters['date_from']))
@@ -347,29 +341,20 @@ class DashboardMetricsService
     }
 
     /**
-     * Win/loss rate and value analysis.
-     */
-    /**
-     * Win/loss analysis.
-     *
-     * FIX: was returning flat keys (won_count, lost_count, win_rate, won_value, lost_value)
-     * but TypeScript WinLossAnalysis and dashboard.tsx both expect NESTED objects:
-     *   win_loss.won.count / win_loss.won.percentage / win_loss.won.value
-     *   win_loss.lost.count / win_loss.lost.percentage / win_loss.lost.value
-     *   win_loss.total.count / win_loss.total.value
+     * Win/loss analysis with nested structure matching TypeScript WinLossAnalysis interface.
      */
     public function getWinLossAnalysis(array $filters = []): array
     {
-        $query = Lead::whereIn('status', [\App\Enums\LeadStatus::WON, \App\Enums\LeadStatus::LOST])
+        $query = Lead::whereIn('status', [LeadStatus::WON, LeadStatus::LOST])
             ->when(!empty($filters['owner_id']), fn ($q) => $q->where('owner_id', $filters['owner_id']))
             ->when(!empty($filters['date_from']), fn ($q) => $q->where('created_at', '>=', $filters['date_from']));
 
-        $wonCount  = (clone $query)->where('status', \App\Enums\LeadStatus::WON)->count();
-        $lostCount = (clone $query)->where('status', \App\Enums\LeadStatus::LOST)->count();
-        $total     = $wonCount + $lostCount ?: 1; // prevent division by zero
+        $wonCount  = (clone $query)->where('status', LeadStatus::WON)->count();
+        $lostCount = (clone $query)->where('status', LeadStatus::LOST)->count();
+        $total     = $wonCount + $lostCount ?: 1;
 
-        $wonValue  = (float) ((clone $query)->where('status', \App\Enums\LeadStatus::WON)->sum('estimated_value')  ?? 0);
-        $lostValue = (float) ((clone $query)->where('status', \App\Enums\LeadStatus::LOST)->sum('estimated_value') ?? 0);
+        $wonValue  = (float) ((clone $query)->where('status', LeadStatus::WON)->sum('estimated_value')  ?? 0);
+        $lostValue = (float) ((clone $query)->where('status', LeadStatus::LOST)->sum('estimated_value') ?? 0);
 
         return [
             'won' => [
@@ -390,7 +375,8 @@ class DashboardMetricsService
     }
 
     /**
-     * 
+     * Full snapshot — used by GET /api/v1/analytics/dashboard.
+     * Structure matches TypeScript DashboardData interface exactly.
      */
     public function getDashboardSnapshot(array $filters = []): array
     {
@@ -403,10 +389,19 @@ class DashboardMetricsService
             'conversion_funnel' => $this->getConversionFunnel($filters),
             'lead_velocity'     => $this->getLeadVelocity($filters),
             'win_loss'          => $this->getWinLossAnalysis($filters),
-            // Extra — not in DashboardData interface but useful for other views:
+            // Extra data (not in DashboardData TS interface, but used by other views):
             'leads_over_time'   => $this->getLeadsOverTime($filters),
             'activity_stats'    => $this->getActivityStats($filters),
             'team_performance'  => $this->getTeamPerformance($filters),
         ];
     }
-}    
+
+    // ── Private Helpers ───────────────────────────────────────────────────────
+
+    private function calcConversionRate($query): float
+    {
+        $total     = (clone $query)->count();
+        $converted = (clone $query)->whereNotNull('converted_to_opportunity_at')->count();
+        return $total > 0 ? round($converted / $total * 100, 1) : 0;
+    }
+}

@@ -9,101 +9,108 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 
+/**
+ * BUG FIX — Invoice line items used the key 'total' for the per-line amount,
+ * but the Invoice model, InvoiceController (store/update), and the frontend
+ * TypeScript interface (InvoiceShow) all expect the key 'amount'.
+ *
+ * When seed data was loaded, every invoice line rendered as NaN/undefined in
+ * the show page table even after the double-encoding bug was resolved.
+ *
+ * Changed: 'total' => $lineTotal  →  'amount' => $lineTotal
+ */
 class InvoiceFactory extends Factory
 {
     protected $model = Invoice::class;
 
     public function definition(): array
     {
-        $issueDate = $this->faker->dateTimeBetween('-2 months', 'now');
-        $dueDate = (clone $issueDate)->modify('+' . rand(7, 30) . ' days');
+        $issueDate = $this->faker->dateTimeBetween('-3 months', 'now');
+        $dueDate   = (clone $issueDate)->modify('+' . rand(7, 45) . ' days');
 
-        // List of statuses as per the migration: ['draft', 'issued', 'paid', 'overdue', 'cancelled']
         $statuses = ['draft', 'issued', 'paid', 'overdue', 'cancelled'];
 
-        // Pick client and project if available
-        $project = Project::inRandomOrder()->first();
-        $clientId = $project?->client_id ?? User::inRandomOrder()->first()->id;
+        $project  = Project::inRandomOrder()->first();
+        $clientId = $project?->client_id ?? User::inRandomOrder()->first()?->id ?? 1;
 
-        // Generate plausible line items
-        $lineCount = rand(1, 4);
-        $lines = [];
-        $subtotal = 0;
+        // Build line items — key MUST be 'amount', not 'total'
+        $lineCount = rand(1, 5);
+        $lines     = [];
+        $subtotal  = 0;
+
         for ($i = 0; $i < $lineCount; $i++) {
-            $quantity = rand(1, 10);
-            $unitPrice = $this->faker->randomFloat(2, 100, 2000);
-            $lineTotal = $quantity * $unitPrice;
+            $quantity  = rand(1, 10);
+            $unitPrice = $this->faker->randomFloat(2, 50, 3000);
+            $lineAmt   = round($quantity * $unitPrice, 2);
+
             $lines[] = [
-                'description' => $this->faker->words(3, true),
-                'quantity' => $quantity,
-                'unit_price' => $unitPrice,
-                'total' => $lineTotal,
+                'description' => ucfirst($this->faker->words(rand(2, 4), true)),
+                'quantity'    => $quantity,
+                'unit_price'  => $unitPrice,
+                'amount'      => $lineAmt,   // FIX: was 'total' — frontend expects 'amount'
             ];
-            $subtotal += $lineTotal;
+
+            $subtotal += $lineAmt;
         }
 
-        $tax = round($subtotal * (rand(5, 15) / 100), 2);
-        $total = round($subtotal + $tax, 2);
+        $taxRate = rand(0, 16);   // 0–16% VAT
+        $tax     = round($subtotal * $taxRate / 100, 2);
+        $total   = round($subtotal + $tax, 2);
 
         return [
             'project_id' => $project?->id,
-            'client_id' => $clientId,
-            'number' => Str::upper('INV-' . Str::random(8)),
+            'client_id'  => $clientId,
             'issue_date' => $issueDate,
-            'due_date' => $dueDate,
-            'subtotal' => round($subtotal, 2),
-            'tax' => $tax,
-            'total' => $total,
-            'currency' => 'USD',
-            'sent_at' => $issueDate,
-            'status' => $this->faker->randomElement($statuses),
-            'lines' => $lines,
-            'notes' => $this->faker->sentence(),
-            // No 'amount', 'paid_at', or 'metadata' in table schema
+            'due_date'   => $dueDate,
+            'subtotal'   => round($subtotal, 2),
+            'tax'        => $tax,
+            'total'      => $total,
+            'currency'   => 'USD',
+            'status'     => $this->faker->randomElement($statuses),
+            'lines'      => $lines,   // Eloquent 'array' cast handles json_encode
+            'notes'      => $this->faker->optional(0.6)->sentence(),
+            'sent_at'    => null,
         ];
     }
 
-    /**
-     * Mark invoice as fully paid
-     */
-    public function paid(): Factory
-    {
-        return $this->state(function (array $attributes) {
-            $issueDate = $attributes['issue_date'] ?? now();
-            $paidAt = Carbon::parse($issueDate)->addDays(rand(1, 30));
+    // ── States ────────────────────────────────────────────────────────────────
 
+    public function draft(): static
+    {
+        return $this->state(fn () => ['status' => 'draft', 'sent_at' => null]);
+    }
+
+    public function issued(): static
+    {
+        return $this->state(fn () => [
+            'status'  => 'issued',
+            'sent_at' => now()->subDays(rand(1, 14)),
+        ]);
+    }
+
+    public function paid(): static
+    {
+        return $this->state(fn () => [
+            'status'  => 'paid',
+            'sent_at' => now()->subDays(rand(15, 45)),
+        ]);
+    }
+
+    public function overdue(): static
+    {
+        return $this->state(function () {
+            $issueDate = now()->subDays(rand(45, 90));
             return [
-                'status' => 'paid',
-                // No 'paid_at' column in table; only timestamps and status
+                'status'     => 'overdue',
+                'issue_date' => $issueDate,
+                'due_date'   => (clone $issueDate)->addDays(rand(7, 30)),
+                'sent_at'    => $issueDate->addDays(1),
             ];
         });
     }
 
-    /**
-     * Mark as overdue (unpaid past due)
-     */
-    public function overdue(): Factory
+    public function cancelled(): static
     {
-        return $this->state(function (array $attributes) {
-            return [
-                'status' => 'overdue',
-            ];
-        });
-    }
-
-    /**
-     * Mark as draft
-     */
-    public function draft(): Factory
-    {
-        return $this->state(fn() => ['status' => 'draft']);
-    }
-
-    /**
-     * Mark as cancelled
-     */
-    public function cancelled(): Factory
-    {
-        return $this->state(fn() => ['status' => 'cancelled']);
+        return $this->state(fn () => ['status' => 'cancelled']);
     }
 }

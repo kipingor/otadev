@@ -208,7 +208,7 @@ export default function InvoiceShow({ invoice, amount_paid, amount_due }: Props)
                                             <td className="py-2.5">{line.description}</td>
                                             <td className="py-2.5 text-center">{line.quantity}</td>
                                             <td className="py-2.5 text-right">{fmt(line.unit_price, invoice.currency)}</td>
-                                            <td className="py-2.5 text-right font-medium">{fmt(line.total, invoice.currency)}</td>
+                                            <td className="py-2.5 text-right font-medium">{fmt(line.amount, invoice.currency)}</td>
                                         </tr>
                                     ))}
                                 </tbody>

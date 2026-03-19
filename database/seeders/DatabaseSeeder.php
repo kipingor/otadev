@@ -52,7 +52,7 @@ class DatabaseSeeder extends Seeder
         $adminUser->assignRole($adminRole);
 
         // ── 2. Supporting users ────────────────────────────────────────────────
-        $users = User::factory(10)->create();
+        $users    = User::factory(10)->create();
         $allUsers = $users->push($adminUser); // include admin in pool
 
         // ── 3. Pipeline stages ─────────────────────────────────────────────────
@@ -64,7 +64,8 @@ class DatabaseSeeder extends Seeder
             ['key' => 'closed_won',  'name' => 'Closed Won',  'order' => 4, 'color' => '#059669'],
             ['key' => 'closed_lost', 'name' => 'Closed Lost', 'order' => 5, 'color' => '#ef4444'],
         ];
-        $pipelineStages = collect($defaultStages)->map(fn ($s) =>
+        $pipelineStages = collect($defaultStages)->map(
+            fn ($s) =>
             PipelineStage::firstOrCreate(['key' => $s['key']], $s)
         );
 
@@ -133,7 +134,6 @@ class DatabaseSeeder extends Seeder
             $milestones = Milestone::factory($milestoneCount)->create([
                 'project_id' => $project->id,
                 'created_at' => $randomDate(),
-                // FIX: milestone table uses 'due_date', not 'scheduled_date'
                 'status'     => $lifecycle === 'completed' ? 'achieved' : 'pending',
             ]);
 
@@ -142,20 +142,19 @@ class DatabaseSeeder extends Seeder
 
             $tasks = Task::factory($taskCount)
                 ->when($lifecycle === 'completed', fn ($f) => $f->done())
-                ->when($lifecycle === 'on_hold',   fn ($f) => $f->pending())
-                ->when($lifecycle === 'active',    fn ($f) => $f->inProgress())
+                ->when($lifecycle === 'on_hold', fn ($f) => $f->pending())
+                ->when($lifecycle === 'active', fn ($f) => $f->inProgress())
                 ->create([
                     'project_id' => $project->id,
                     'created_at' => $randomDate(),
                 ]);
 
-            // FIX: For completed projects, ensure ALL tasks have status='done'
-            // (the factory state sets done() but we double-check here)
+            // For completed projects, ensure ALL tasks have status='done'
             if ($lifecycle === 'completed') {
                 $tasks->each(fn ($t) => $t->status !== 'done' && $t->update(['status' => 'done', 'completed_at' => $randomDate()]));
             }
 
-            // Assign WBS codes to top-level tasks (1.0, 2.0, …) for clarity
+            // Assign WBS codes to top-level tasks (1.0, 2.0, …)
             $tasks->values()->each(function ($task, $index) {
                 $task->update(['wbs_code' => ($index + 1) . '.0', 'sort_order' => $index]);
             });
@@ -172,12 +171,16 @@ class DatabaseSeeder extends Seeder
             });
 
             // ── Team members ──────────────────────────────────────────────────
-            $teamSize      = rand(2, 5);
+            $teamSize        = rand(2, 5);
             $assignedUserIds = collect([$project->owner_id]);
 
             $allUsers->shuffle()->take($teamSize + 2)->each(function ($u) use ($project, &$assignedUserIds, $teamSize) {
-                if ($assignedUserIds->count() > $teamSize) return;
-                if ($assignedUserIds->contains($u->id)) return;
+                if ($assignedUserIds->count() > $teamSize) {
+                    return;
+                }
+                if ($assignedUserIds->contains($u->id)) {
+                    return;
+                }
                 ProjectTeamMember::create([
                     'project_id'            => $project->id,
                     'user_id'               => $u->id,
@@ -189,6 +192,16 @@ class DatabaseSeeder extends Seeder
             });
 
             // ── Invoices & Payments ───────────────────────────────────────────
+            // BUG FIX: The original seeder manually called json_encode() on the
+            // invoice->lines array BEFORE calling save(). Because the Invoice model
+            // has a 'lines' => 'array' cast, Eloquent also encodes it on save —
+            // resulting in double-encoded JSON stored in the DB. When retrieved,
+            // the cast decodes only the outer layer and returns a raw JSON string
+            // instead of an array, causing Array.isArray() to return false in the
+            // frontend and the line items table to render empty.
+            //
+            // Fix: remove the manual json_encode block and call save() directly.
+            // Eloquent's 'array' cast handles the encoding automatically.
             $invoiceCount = $lifecycle === 'completed' ? rand(2, 4) : rand(1, 2);
             $invoices = Invoice::factory($invoiceCount)->make([
                 'project_id' => $project->id,
@@ -196,11 +209,12 @@ class DatabaseSeeder extends Seeder
                 'created_at' => $randomDate(),
                 'due_date'   => $randomDate()->addDays(rand(7, 45)),
             ])->each(function ($invoice) {
+                // FIX: Do NOT manually json_encode here — the 'array' cast does it.
                 $invoice->save();
             });
 
             // For completed projects most invoices should be paid
-            $invoices->each(function ($invoice) use ($randomDate, $project, $lifecycle) {
+            $invoices->each(function ($invoice) use ($randomDate, $lifecycle) {
                 $paymentCount = $lifecycle === 'completed' ? rand(1, 2) : rand(0, 1);
                 Payment::factory($paymentCount)->create([
                     'invoice_id' => $invoice->id,
@@ -209,18 +223,19 @@ class DatabaseSeeder extends Seeder
             });
 
             // ── Expenses ──────────────────────────────────────────────────────
+            // Same fix applies: Expense model has 'lines' => 'array' cast.
             Expense::factory(rand(2, 6))->make([
                 'project_id'  => $project->id,
                 'incurred_at' => $randomDate(),
             ])->each(function ($expense) {
-                if (is_array($expense->lines)) {
-                    $expense->lines = json_encode($expense->lines);
-                }
+                // FIX: Do NOT manually json_encode — the cast handles it.
                 $expense->save();
             });
         });
 
         // ── 6. Standalone suppliers ────────────────────────────────────────────
+        // Supplier model does NOT use Eloquent array casts for these fields,
+        // so manual json_encode is correct here — leave it unchanged.
         Supplier::factory(8)->make()->each(function ($supplier) {
             foreach (['contact_info', 'products', 'metadata'] as $field) {
                 if (isset($supplier->$field) && is_array($supplier->$field)) {
