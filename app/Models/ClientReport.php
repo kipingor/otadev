@@ -2,17 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTenantScope;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ClientReport extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, HasTenantScope;
 
     protected $table = 'client_reports';
 
     protected $fillable = [
+        'tenant_id',
         'client_id', 'project_id', 'created_by',
         'title', 'period_type', 'period_start', 'period_end',
         'content', 'metrics', 'status', 'sent_at', 'viewed_at',

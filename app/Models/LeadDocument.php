@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Concerns\HasTenantScope;
 use App\Policies\LeadDocumentPolicy;
 use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 use App\Enums\LeadDocumentStatus;
@@ -11,10 +12,12 @@ use App\Enums\LeadDocumentStatus;
 #[UsePolicy(LeadDocumentPolicy::class)]
 class LeadDocument extends Model
 {
+    use HasTenantScope;
     /**
      * The attributes that are mass assignable.
      */
     protected $fillable = [
+        'tenant_id',
         'lead_id',
         'filename',
         'original_name',

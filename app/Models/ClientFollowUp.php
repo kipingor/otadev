@@ -2,17 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTenantScope;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ClientFollowUp extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, HasTenantScope;
 
     protected $table = 'client_follow_ups';
 
     protected $fillable = [
+        'tenant_id',
         'client_id', 'project_id', 'invoice_id', 'created_by',
         'type', 'subject', 'notes', 'outcome', 'priority',
         'scheduled_at', 'completed_at',

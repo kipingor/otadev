@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\Concerns\HasTenantScope;
 
 class PipelineStage extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTenantScope;
 
     /**
      * The table associated with the model.
@@ -22,6 +23,7 @@ class PipelineStage extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'tenant_id',
         'key',
         'name',
         'color',

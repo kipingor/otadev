@@ -2,11 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTenantScope;
+
 use Illuminate\Database\Eloquent\Model;
 
 class Message extends Model
 {
+    use HasTenantScope;
     protected $fillable = [
+        'tenant_id',
         'sender_id',
         'receiver_id',
         'body',

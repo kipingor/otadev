@@ -15,25 +15,19 @@ class SupplierFactory extends Factory
         $createdAt = fake()->dateTimeBetween('-6 months', 'now');
 
         return [
+            // tenant_id set explicitly in DemoDataSeeder
             'name' => fake()->company(),
 
             'contact_info' => [
-                'email' => fake()->companyEmail(),
-                'phone' => fake()->e164PhoneNumber(),
+                'email'   => fake()->companyEmail(),
+                'phone'   => fake()->e164PhoneNumber(),
                 'address' => fake()->address(),
             ],
 
             'products' => fake()->randomElements([
-                'Concrete',
-                'Steel',
-                'HVAC Equipment',
-                'Electrical Supplies',
-                'Plumbing Materials',
-                'Security Services',
-                'Consulting',
-                'General Contracting',
-                'IT Equipment',
-                'Landscaping Services',
+                'Concrete', 'Steel', 'HVAC Equipment', 'Electrical Supplies',
+                'Plumbing Materials', 'Security Services', 'Consulting',
+                'General Contracting', 'IT Equipment', 'Landscaping Services',
             ], fake()->numberBetween(1, 4)),
 
             'rating' => fake()->optional()->randomFloat(2, 2, 5),
@@ -41,7 +35,7 @@ class SupplierFactory extends Factory
             'metadata' => [
                 'account_number' => strtoupper(Str::random(12)),
                 'contact_person' => fake()->name(),
-                'notes' => fake()->sentence(),
+                'notes'          => fake()->sentence(),
             ],
 
             'created_at' => $createdAt,

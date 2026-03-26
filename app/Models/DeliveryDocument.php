@@ -1,13 +1,17 @@
 <?php
 namespace App\Models;
+
+use App\Models\Concerns\HasTenantScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DeliveryDocument extends Model
 {
-    use SoftDeletes;
-    protected $fillable = ['delivery_id','purchase_order_id','supplier_id','uploaded_by','type','title','file_path','file_name','mime_type','file_size','status','notes','approved_by','approved_at'];
+    use SoftDeletes, HasTenantScope;
+    protected $fillable = [
+'tenant_id',
+'delivery_id','purchase_order_id','supplier_id','uploaded_by','type','title','file_path','file_name','mime_type','file_size','status','notes','approved_by','approved_at'];
     protected $casts = ['approved_at'=>'datetime','file_size'=>'integer'];
 
     public function delivery(): BelongsTo      { return $this->belongsTo(Delivery::class); }

@@ -19,6 +19,7 @@ return new class extends Migration
             $table->json('metadata')->nullable(); // tax_pin, contact_referemce, notes
             $table->enum('status', ['active','inactive'])->default('active');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

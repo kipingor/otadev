@@ -2,17 +2,20 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTenantScope;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProjectTeamMember extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTenantScope;
     
     protected $table = 'project_users';
 
     protected $fillable = [
+        'tenant_id',
         'project_id',
         'user_id',
         'role',

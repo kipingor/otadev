@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Concerns\HasTenantScope;
 
 /**
  * Stakeholder Register entry — PMBOK §13.1.3
@@ -17,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class ProjectStakeholder extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasTenantScope;
 
     protected $table = 'project_stakeholders';
 
@@ -40,6 +41,7 @@ class ProjectStakeholder extends Model
     ];
 
     protected $fillable = [
+        'tenant_id',
         'project_id', 'user_id',
         'name', 'email', 'organization', 'role',
         'influence', 'interest',

@@ -1,5 +1,7 @@
 <?php
-
+// ─────────────────────────────────────────────────────────────────────────────
+// FILE: database/factories/MilestoneFactory.php
+// ─────────────────────────────────────────────────────────────────────────────
 namespace Database\Factories;
 
 use App\Models\Project;
@@ -12,14 +14,13 @@ class MilestoneFactory extends Factory
 
     public function definition(): array
     {
-        $status = $this->faker->randomElement(['pending', 'achieved', 'overdue']);
-
         return [
-            'project_id' => Project::inRandomOrder()->first()?->id ?? Project::factory(),
-            'title' => $this->faker->sentence(3),
+            'project_id'  => Project::withoutTenantScope()->inRandomOrder()->first()?->id
+                ?? Project::factory(),
+            'title'       => $this->faker->sentence(3),
             'description' => $this->faker->optional()->paragraph(),
-            'due_date' => $this->faker->optional()->dateTimeBetween('+1 week', '+3 months'),
-            'status' => $status,
+            'due_date'    => $this->faker->optional()->dateTimeBetween('+1 week', '+3 months'),
+            'status'      => $this->faker->randomElement(['pending', 'achieved', 'overdue']),
         ];
     }
 }

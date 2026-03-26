@@ -14,12 +14,14 @@ use Illuminate\Database\Eloquent\Builder;
 use App\Enums\LeadStatus;
 use App\Enums\LeadType;
 use App\Jobs\ExecuteWorkflowJob;
+use App\Models\Concerns\HasTenantScope;
 
 class Lead extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasTenantScope;
 
     protected $fillable = [
+        'tenant_id',
         'title',
         'description',
         'type',

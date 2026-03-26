@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTenantScope;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LeaveRequest extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTenantScope;
 
     /** Points to the table that actually exists. */
     protected $table = 'hr_leave_requests';
@@ -21,6 +23,7 @@ class LeaveRequest extends Model
     ];
 
     protected $fillable = [
+        'tenant_id',
         'staff_profile_id',
         'from_date',
         'to_date',

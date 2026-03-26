@@ -1,5 +1,7 @@
 <?php
-
+// ─────────────────────────────────────────────────────────────────────────────
+// FILE: database/factories/TimeLogFactory.php
+// ─────────────────────────────────────────────────────────────────────────────
 namespace Database\Factories;
 
 use App\Models\TimeLog;
@@ -14,10 +16,11 @@ class TimeLogFactory extends Factory
     public function definition(): array
     {
         return [
-            'task_id' => Task::factory(),            // auto-create task if not provided
-            'user_id' => User::factory(),            // auto-create user if not provided
-            'hours' => $this->faker->randomFloat(2, 0.5, 8),  // 0.5 to 8 hours
-            'notes' => $this->faker->optional()->sentence(),
+            'task_id'   => Task::withoutTenantScope()->inRandomOrder()->first()?->id
+                ?? Task::factory(),
+            'user_id'   => User::inRandomOrder()->first()?->id ?? User::factory(),
+            'hours'     => $this->faker->randomFloat(2, 0.5, 8),
+            'notes'     => $this->faker->optional()->sentence(),
             'logged_at' => $this->faker->dateTimeBetween('-30 days', 'now'),
         ];
     }

@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Concerns\HasTenantScope;
 
 class Payment extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasTenantScope;
 
     public const STATUSES = [
         'pending',
@@ -24,6 +25,7 @@ class Payment extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'tenant_id',
         'invoice_id',
         'amount',
         'currency',

@@ -9,11 +9,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\Concerns\HasTenantScope;
 
 #[UsePolicy(ProjectPolicy::class)]
 class Project extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasTenantScope;
 
     // ── Lifecycle statuses ───────────────────────────────────────────────────
     public const STATUSES = [
@@ -34,6 +35,7 @@ class Project extends Model
     ];
 
     protected $fillable = [
+        'tenant_id',
         'opportunity_id',
         'name',
         'description',

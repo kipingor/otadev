@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Concerns\HasTenantScope;
 
 /**
  * Risk Register entry — PMBOK §11.2.3
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class ProjectRisk extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasTenantScope;
 
     protected $table = 'project_risks';
 
@@ -54,6 +55,7 @@ class ProjectRisk extends Model
     ];
 
     protected $fillable = [
+        'tenant_id',
         'project_id', 'owner_id', 'created_by',
         'title', 'description', 'category',
         'probability', 'impact',

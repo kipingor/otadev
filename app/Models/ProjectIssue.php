@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Concerns\HasTenantScope;
 
 /**
  * Issue Log entry — PMBOK §4.3.3
@@ -16,7 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class ProjectIssue extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasTenantScope;
 
     protected $table = 'project_issues';
 
@@ -25,6 +26,7 @@ class ProjectIssue extends Model
     public const STATUSES    = ['open', 'in_progress', 'escalated', 'resolved', 'closed'];
 
     protected $fillable = [
+        'tenant_id',
         'project_id', 'owner_id', 'raised_by', 'risk_id',
         'title', 'description', 'category',
         'severity', 'priority', 'status',

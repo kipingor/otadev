@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Concerns\HasTenantScope;
 
 /**
  * Canonical audit log model.
@@ -18,11 +19,12 @@ use Illuminate\Support\Facades\Auth;
  */
 class AuditLog extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTenantScope;
 
     protected $table = 'audit_logs';
 
     protected $fillable = [
+        'tenant_id',
         'auditable_type',
         'auditable_id',
         'user_id',

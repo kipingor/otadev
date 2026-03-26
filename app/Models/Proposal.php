@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Concerns\HasTenantScope;
 
 class Proposal extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasTenantScope;
 
     public const STATUSES = [
         'draft',
@@ -25,6 +26,7 @@ class Proposal extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'tenant_id',
         'opportunity_id',
         'lead_id',
         'content',

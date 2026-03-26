@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTenantScope;
+
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ContactFollowUp extends Model
 {
+    use HasTenantScope;
     protected $fillable = [
+        'tenant_id',
         'contact_id', 'sequence', 'subject', 'body',
         'status', 'scheduled_at', 'sent_at', 'reply_notes',
     ];

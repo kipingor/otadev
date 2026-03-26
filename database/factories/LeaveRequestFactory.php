@@ -2,14 +2,14 @@
 
 namespace Database\Factories;
 
-use App\Models\HrLeaveRequest;
+use App\Models\LeaveRequest;
 use App\Models\StaffProfile;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-class HrLeaveRequestFactory extends Factory
+class LeaveRequestFactory extends Factory
 {
-    protected $model = HrLeaveRequest::class;
+    protected $model = LeaveRequest::class;
 
     public function definition()
     {

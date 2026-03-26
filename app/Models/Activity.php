@@ -9,16 +9,18 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Enums\ActivityType;
 use App\Policies\ActivityPolicy;
 use Illuminate\Database\Eloquent\Attributes\UsePolicy;
+use App\Models\Concerns\HasTenantScope;
 
 #[UsePolicy(ActivityPolicy::class)]
 class Activity extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasTenantScope;
 
     /**
      * The attributes that are mass assignable.
      */
     protected $fillable = [
+        'tenant_id',
         'lead_id',
         'user_id',
         'type',

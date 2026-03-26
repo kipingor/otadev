@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTenantScope;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,12 +11,13 @@ use App\Enums\ImportStatus;
 
 class ImportJob extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTenantScope;
 
     /**
      * The attributes that are mass assignable.
      */
     protected $fillable = [
+        'tenant_id',
         'user_id',
         'type',
         'status',

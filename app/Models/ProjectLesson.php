@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Concerns\HasTenantScope;
 
 /**
  * Lessons Learned Register — PMBOK §4.4.3 / §4.7
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class ProjectLesson extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTenantScope;
 
     protected $table = 'project_lessons';
 
@@ -31,6 +32,7 @@ class ProjectLesson extends Model
     ];
 
     protected $fillable = [
+        'tenant_id',
         'project_id', 'created_by',
         'title', 'situation', 'impact', 'recommendation',
         'category', 'type', 'phase_captured', 'tags',

@@ -11,11 +11,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Builder;
 use App\Policies\OpportunityPolicy;
 use Illuminate\Database\Eloquent\Attributes\UsePolicy;
+use App\Models\Concerns\HasTenantScope;
 
 #[UsePolicy(OpportunityPolicy::class)]
 class Opportunity extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasTenantScope;
 
     public const STAGES = [
         'qualification',
@@ -26,6 +27,7 @@ class Opportunity extends Model
     ];
 
     protected $fillable = [
+        'tenant_id',
         'lead_id',
         'assigned_to',
         'owner_id',

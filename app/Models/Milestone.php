@@ -5,10 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Concerns\HasTenantScope;
 
 class Milestone extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasTenantScope;
 
     /**
      * The attributes that are mass assignable.
@@ -16,6 +17,7 @@ class Milestone extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'tenant_id',
         'project_id',
         'title',
         'description',

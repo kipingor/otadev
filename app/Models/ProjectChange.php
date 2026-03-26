@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Concerns\HasTenantScope;
 
 /**
  * Change Request — PMBOK §4.6 (Perform Integrated Change Control)
@@ -17,7 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class ProjectChange extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasTenantScope;
 
     protected $table = 'project_changes';
 
@@ -42,6 +43,7 @@ class ProjectChange extends Model
     ];
 
     protected $fillable = [
+        'tenant_id',
         'project_id', 'requested_by', 'reviewed_by', 'risk_id', 'issue_id',
         'title', 'description', 'change_type',
         'impacts_scope', 'impacts_schedule', 'impacts_cost', 'impacts_quality',

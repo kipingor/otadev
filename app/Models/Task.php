@@ -4,12 +4,21 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\Concerns\HasTenantScope;
 
 class Task extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes, HasTenantScope;
+
+     /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
 
     protected $fillable = [
+        'tenant_id',
         'project_id',
         'milestone_id',
         'title',

@@ -2,15 +2,18 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\Concerns\HasTenantScope;
 
 class Tender extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, HasFactory, HasTenantScope;
 
     protected $fillable = [
+        'tenant_id',
         'owner_id', 'lead_id', 'opportunity_id', 'project_id',
         'title', 'reference_number', 'issuer',
         'document_path', 'document_name',

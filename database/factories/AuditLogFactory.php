@@ -2,13 +2,13 @@
 
 namespace Database\Factories;
 
-use App\Models\ActivityLog;
+use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
-class ActivityLogFactory extends Factory
+class AuditLogFactory extends Factory
 {
-    protected $model = ActivityLog::class;
+    protected $model = AuditLog::class;
 
     public function definition()
     {
